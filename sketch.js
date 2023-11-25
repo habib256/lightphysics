@@ -50,7 +50,7 @@ function setup() {
   resetDioptres();
 
   // La couleur doit avoir un alpha de 20
-  lights.push(new Light(0,0, color(255, 255, 255, 20), dioptres));
+  lights.push(new Light(0,0, color(255, 255, 255, 25), dioptres));
 
   Runner.run(Runner.create(), engine);
 }
@@ -79,7 +79,8 @@ function resetDioptres() {
 }
 
 function mouseClicked() {
-  let ball = new Ball(mouseX, mouseY, random(20, 40),{}, ballsImg);
+  
+  let ball = new Ball(mouseX, mouseY, random(20, 40),{restitution : 0.8}, ballsImg);
   balls.push(ball);
 
 }
@@ -137,8 +138,18 @@ function generateBox(x, y, w, h, img) {
   boxes.push(new Box(x, y, w, h, options, img));
 }
 
+function generateBall(x, y, r, options, ballsImg) {
+  options.restitution = 0.8; 
+  balls.push(new Ball(x, y, r, options, ballsImg));
+}
+
 function manageObjects() {
   if (frameCount % 60 == 0) {
-    generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
+    
+    if (Math.random() < 0.5) {
+      generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
+    } else {
+      generateBall(random(200, width - 150), 0, random(10, 50), {timeScale: 1}, ballsImg);
+    }
   }
 }
