@@ -46,15 +46,10 @@ function Ball(x, y, r, options, ballsImg) {
         let miny = cy - this.r;
         let maxy = cy + this.r;
 
-        let a = this.rotatePt(minx, miny, cx, cy, angle);
-        let b = this.rotatePt(maxx, miny, cx, cy, angle);
-        let c = this.rotatePt(maxx, maxy, cx, cy, angle);
-        let d = this.rotatePt(minx, maxy, cx, cy, angle);
-
-        let angleStep = 2 * Math.PI / 40;
-        for (let i = 0; i < 40; i++) {
+        let angleStep = 2 * Math.PI / 30;
+        for (let i = 0; i < 30; i++) {
             let angle1 = i * angleStep;
-            let angle2 = ((i + 1) % 40) * angleStep;
+            let angle2 = ((i + 1) % 30) * angleStep;
             let pt1 = this.rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, angle);
             let pt2 = this.rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, angle);
             let dioptre = new Dioptre(pt1.x, pt1.y, pt2.x, pt2.y);

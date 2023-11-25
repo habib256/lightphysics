@@ -50,13 +50,12 @@ function setup() {
   resetDioptres();
 
   // La couleur doit avoir un alpha de 20
-  lights.push(new Light(0,0, color(255, 255, 255, 128), dioptres));
+  lights.push(new Light(0,0, color(128, 128, 128, 200), dioptres));
 
   Runner.run(Runner.create(), engine);
 }
 
 function draw() {
-  background(0);
   resetDioptres();
   manageObjects();
 
@@ -64,8 +63,9 @@ function draw() {
   drawBackground();
   drawBoxes();
   drawBalls();
-  blendMode(BLEND); // Utilise le mode de mélange ADD pour dessiner la lumière
+  blendMode(ADD);
   drawLights();
+
   //drawDioptres();
 
   Engine.update(engine);
@@ -132,6 +132,7 @@ function drawBalls() {
       balls.splice(i, 1);
     } else {
       balls[i].show();
+      
     }
   }
 }
