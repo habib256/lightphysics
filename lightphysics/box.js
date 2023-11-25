@@ -9,7 +9,7 @@ function Box(x, y, w, h, options, BoxesImg) {
     this.body = Bodies.rectangle(x, y, w, h, options);
     this.w = w;
     this.h = h;
-    this.img = BoxesImg[Math.floor(Math.random() * 2)]; // Ajouté cette ligne
+    this.img = BoxesImg[Math.floor(Math.random() * 2)];
     World.add(engine.world, this.body);
 
     this.getX = function () {

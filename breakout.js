@@ -9,7 +9,6 @@
 let Engine = Matter.Engine,
   World = Matter.World,
   Runner = Matter.Runner,
-  Detector = Matter.Detector,
   Bodies = Matter.Bodies,
   Body = Matter.Body,
   MouseConstraint = Matter.MouseConstraint,
@@ -19,42 +18,38 @@ let engine;
 let world;
 
 let boxes = [];
+let boxesImg= [];
 let balls = [];
+let ballsImg = [];
 let paddles = [];
 
 let dioptres = [];
-//let rays = [];
 let lights = [];
 //let dynalights = [];
 let backgrounds = [];
+let backImg;
 let layers = [];
 let ballons = [];
 let boites = [];
 
-let song = [];
+let songs = [];
 
 // Select your best color for the lights
-let newcolor;
+//let newcolor;
 
 function preload() {
-  const graphics = ['carre', 'ballon', 'basket', 'smiley', 'tennis', 'petanque', 'bowling', 'soleil'];
-
-  const music = ['rebond', 'rebond2', 'rebond3', 'envol'];
-
-  loadImages(boites, graphics, 'graphics');
-  loadImages(ballons, graphics, 'graphics');
-  loadImages();
-  loadSounds(song, music, 'music');
-}
-
-function loadImages() {
+  let ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
+  boxesImg.push(loadImage('graphics/crate01.jpg'));
+  boxesImg.push(loadImage('graphics/crate02.png'));
+  ballImages.forEach(image => {
+  ballsImg.push(loadImage(`graphics/${image}`));
+  });
   for (let i = 1; i <= 7; i++) {
     backgrounds.push(loadImage(`graphics/mur0${i}.jpg`));
   }
-}
-
-function loadSounds(array, names, folder) {
-  names.forEach(name => array.push(loadSound(`${folder}/${name}.wav`)));
+  songs.push(loadSound('music/rebond.wav'));
+  songs.push(loadSound('music/rebond2.wav'));
+  songs.push(loadSound('music/rebond3.wav'));
 }
 
 function setup() {
@@ -68,9 +63,10 @@ function setup() {
   // Initialiser le moteur et le monde
   engine = Engine.create();
   world = engine.world;
+  engine.world.gravity.y = 0;
 
   // Créer la Lumière
-  let light = new Light(width / 2, height / 2, color(255, 255, 255, 50));
+  let light = new Light(width / 2, height / 2, color(255, 255, 255, 50), dioptres);
   lights.push(light);
   selectimage = floor(random(0, backgrounds.length));
 
@@ -84,9 +80,31 @@ function setup() {
 }
 
 function draw() {
+  background(0);
+  resetDioptres();
+
+  blendMode(BLEND);
+  // Remplacer l'appel à drawBackground() par son code
+  if (backImg) {
+    image(backImg, 0, 0);
+  }
+  drawBoxes();
+  drawBalls();
+  blendMode(BLEND); // Utilise le mode de mélange ADD pour dessiner la lumière
+  
+  
+  if (balls[0]) {
+    lights[0].update(balls[0].getX(), balls[0].getY());
+  }
+  
+  drawLights();
+  //drawDioptres();
+
   // Scènes à sélectionner
   // *************************
-  drawBreakout();
+  //drawBreakout();
+
+  Engine.update(engine);
 }
 
 function mouseClicked() {
@@ -95,7 +113,7 @@ function mouseClicked() {
   }
   newcolor = color(random(255), random(255), random(255));
   newcolor.setAlpha(50);
-  light = new Light(mouseX, mouseY, newcolor);
+  light = new Light(mouseX, mouseY, newcolor,dioptres);
   lights.push(light);
 }
 
@@ -103,8 +121,6 @@ function mouseClicked() {
 // Breakout
 // **************************************
 function setupBreakout() {
-
-  engine.world.gravity.y = 0;
 
   // Mettre en place les briques
   var options = {
@@ -114,18 +130,18 @@ function setupBreakout() {
   let box_;
   for (let i = 130; i < width - 100; i = i + 60) {
     for (let j = 70; j < 200; j = j + 60) {
-      box_ = new Box(i, j, 30, 20, options);
+      box_ = new Box(i, j, 30, 20, options, boxesImg);
       boxes.push(box_);
     }
   }
   // Mettre en place les bords du Breakout
-  box_ = new Box(width / 2, -20, width, 60, options);
+  box_ = new Box(width / 2, -20, width, 60, options, boxesImg);
   boxes.push(box_);
-  box_ = new Box(-20, height / 2, 60, height - 20, options);
+  box_ = new Box(-20, height / 2, 60, height - 20, options, boxesImg);
   boxes.push(box_);
-  box_ = new Box(width / 2, height + 20, width, 60, options);
+  box_ = new Box(width / 2, height + 20, width, 60, options, boxesImg);
   boxes.push(box_);
-  box_ = new Box(width + 20, height / 2, 60, height - 20, options);
+  box_ = new Box(width + 20, height / 2, 60, height - 20, options, boxesImg);
   boxes.push(box_);
 
   let ball_;
@@ -133,7 +149,7 @@ function setupBreakout() {
   var options = {
     timeScale: 1
   }
-  ball_ = new Ball(width / 2, height / 2, 8, options);
+  ball_ = new Ball(width / 2, height / 2, 8, options, ballsImg);
   Body.setVelocity(ball_.body, { x: 3, y: 3 });
   //Body.setAngularVelocity(ball_.body, 0.1);
   ball_.body.friction = 0;
@@ -166,13 +182,13 @@ function setupBreakout() {
             // Créer la Lumière
             newcolor = color(random(255), random(255), random(255));
             newcolor.setAlpha(50);
-            let light = new Light(boxes[i].body.position.x, boxes[i].body.position.y, newcolor);
+            let light = new Light(boxes[i].body.position.x, boxes[i].body.position.y, newcolor, dioptres);
             lights.push(light);
           }
           boxes[i].removeFromWorld();
           boxes.splice(i, 1);
           i--;
-          song[1].play(); 
+          //song[1].play(); 
         }
       }
     });
@@ -186,16 +202,7 @@ function setupBreakout() {
 
 function drawBreakout() {
   background(0);
-  dioptres = [];
-  for (let i = 0; i < boxes.length; i++) {
-
-    if (boxes[i].isOffScreen()) {
-      boxes[i].removeFromWorld();
-      boxes.splice(i, 1);
-      i--;
-    }
-    boxes[i].pushDioptres();
-  }
+  resetDioptres(0);
 
   // Gérer la raquette
   //paddles[0].pushDioptres();
@@ -218,21 +225,59 @@ function drawBreakout() {
 
   lights[0].update(balls[0].getX(), balls[0].getY());
 
-  for (let light of lights) {
-    light.show();
-  }
-
   //BURN SOFT_LIGHT OVERLAY DARKEST MULTIPLY
   blend(backgrounds[selectimage], 0, 0, backgrounds[selectimage].width, backgrounds[selectimage].height, 0, 0, width, height, BURN);
   //blend(backgrounds[selectimage], 0, 0, backgrounds[selectimage].width, backgrounds[selectimage].height, 0, 0, width, height, BURN);
   //blend(layers[0], 0, 0, layers[0].width, layers[0].height, 0, 0, width, height, MULTIPLY);
 
-  for (let light of lights) {
-    light.showLighted();
-  }
- 
- // image(balls[0].renderP5(), balls[0].getX()-balls[0].getR(), balls[0].getY()-balls[0].getR());
-  image(balls[0].render2D(ballons[7]), balls[0].getX(), balls[0].getY());
+drawLights();
+drawBoxes();
+drawBalls();
  
   Engine.update(engine);
 }
+
+function resetDioptres() {
+  dioptres = [];
+  // Limites de l'écran pour les rayons de lumière
+  dioptres.push(new Dioptre(0, 0, width, 0));
+  dioptres.push(new Dioptre(width, 0, width, height));
+  dioptres.push(new Dioptre(width, height, 0, height));
+  dioptres.push(new Dioptre(0, height, 0, 0));
+}
+
+function drawLights() {
+
+  for (let light of lights) {
+    light.show();
+  }
+}
+
+function drawDioptres() {
+  for (let dioptre of dioptres) {
+    dioptre.show();
+  }
+}
+
+function drawBoxes() {
+  for (let i = 0; i < boxes.length; i++) {
+    if (boxes[i].isOffScreen()) {
+      boxes[i].removeFromWorld();
+      boxes.splice(i, 1);
+      i--;
+    }
+    boxes[i].show();
+  }
+}
+
+function drawBalls() {
+  for (let i = balls.length - 1; i >= 0; i--) {
+    if (balls[i].isOffScreen()) {
+      balls[i].removeFromWorld();
+      balls.splice(i, 1);
+    } else {
+      balls[i].show();
+    }
+  }
+}
+
