@@ -65,6 +65,7 @@ function setup() {
   world = engine.world;
   engine.world.gravity.y = 0;
 
+
   // Créer la Lumière
   let light = new Light(width / 2, height / 2, color(255, 255, 255, 50), dioptres);
   lights.push(light);
@@ -226,7 +227,7 @@ function drawBreakout() {
   lights[0].update(balls[0].getX(), balls[0].getY());
 
   //BURN SOFT_LIGHT OVERLAY DARKEST MULTIPLY
-  blend(backgrounds[selectimage], 0, 0, backgrounds[selectimage].width, backgrounds[selectimage].height, 0, 0, width, height, BURN);
+  //blend(backgrounds[selectimage], 0, 0, backgrounds[selectimage].width, backgrounds[selectimage].height, 0, 0, width, height, BURN);
   //blend(backgrounds[selectimage], 0, 0, backgrounds[selectimage].width, backgrounds[selectimage].height, 0, 0, width, height, BURN);
   //blend(layers[0], 0, 0, layers[0].width, layers[0].height, 0, 0, width, height, MULTIPLY);
 
