@@ -44,29 +44,34 @@ function setup() {
   engine = Engine.create(); // Définir 'engine' avant d'appeler 'createWalls()'
   world = engine.world;
 
-  backImg = backgrounds[0];
+  backImg = backgrounds[4];
   
   createWalls(); // Appeler 'createWalls()' après la définition de 'engine'
   resetDioptres();
 
   // La couleur doit avoir un alpha de 20
-  lights.push(new Light(0,0, color(255, 255, 255, 25), dioptres));
+  lights.push(new Light(0,0, color(255, 255, 255, 128), dioptres));
 
   Runner.run(Runner.create(), engine);
 }
 
 function draw() {
   background(0);
-  tint(255, 50);  // Appliquer une transparence
-  image(backImg, 0, 0);
-  tint(255, 255);  // Appliquer une transparence
   resetDioptres();
   manageObjects();
+
+  blendMode(BLEND);
+  drawBackground();
   drawBoxes();
   drawBalls();
-  //drawDioptres();
+  blendMode(BLEND); // Utilise le mode de mélange ADD pour dessiner la lumière
   drawLights();
+  //drawDioptres();
+
   Engine.update(engine);
+}
+function drawBackground() {
+  image(backImg, 0, 0);
 }
 
 function resetDioptres() {
