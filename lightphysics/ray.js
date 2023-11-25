@@ -7,7 +7,7 @@
 
 
 class Ray {
-  constructor(pos, angle,color) {
+  constructor(pos, angle, color) {
     this.pos = pos;
     this.dir = p5.Vector.fromAngle(angle);
     this.color = color;
@@ -22,13 +22,29 @@ class Ray {
   updateColor(color) {
     this.color = color;
   }
-  // show() {
-  //   stroke(this.color);
-  //   push();
-  //   translate(this.pos.x, this.pos.y);
-  //   line(0, 0, this.dir.x * 10, this.dir.y * 10);
-  //   pop();
-  // }
+ show() {
+    stroke(this.color);
+    push();
+    translate(this.pos.x, this.pos.y);
+    line(0, 0, this.dir.x * 1000, this.dir.y * 1000);
+    pop();
+ }
+
+ calculateIntersection(dioptres) {
+  let closest = null;
+  let record = Infinity;
+  for (let dioptre of dioptres) {
+    const pt = this.cast(dioptre);
+    if (pt) {
+      const d = p5.Vector.dist(this.pos, pt);
+      if (d < record) {
+        record = d;
+        closest = pt;
+      }
+    }
+  }
+  return closest;
+}
 
   cast(surface) {
     const x1 = surface.a.x;

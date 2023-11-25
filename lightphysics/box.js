@@ -5,11 +5,11 @@
 // This work started with the help of : Daniel Shiffman
 // https://thecodingtrain.com/CodingChallenges/145-2d-ray-casting.html
 
-function Box(x, y, w, h, options, img) {
+function Box(x, y, w, h, options, BoxesImg) {
     this.body = Bodies.rectangle(x, y, w, h, options);
     this.w = w;
     this.h = h;
-    this.img = img; // Added this line
+    this.img = BoxesImg[Math.floor(Math.random() * 2)]; // Ajouté cette ligne
     World.add(engine.world, this.body);
 
     this.getX = function () {

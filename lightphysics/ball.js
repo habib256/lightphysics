@@ -5,9 +5,10 @@
 // This work started with the help of : Daniel Shiffman
 // https://thecodingtrain.com/CodingChallenges/145-2d-ray-casting.html
 
-function Ball(x, y, r, options) {
+function Ball(x, y, r, options, ballsImg) {
     this.body = Bodies.circle(x, y, r, options);
     this.r = r;
+    this.img = ballsImg[Math.floor(Math.random() * 3)]; // Ajouté cette ligne
     World.add(engine.world, this.body);
 
     this.getX = function () {
@@ -25,13 +26,13 @@ function Ball(x, y, r, options) {
     this.getVY = function () {
         return this.body.velocity.y;
     }
-
     this.isOffScreen = function () {
         var pos = this.body.position;
         return (pos.y > height + 100);
     }
 
-    this.removeFromWorld = function () {
+    this.removeFromWorld = function () 
+    {
         World.remove(world, this.body);
     }
 
@@ -91,12 +92,23 @@ function Ball(x, y, r, options) {
     }
 
     this.show = function () {
+        let pos = this.body.position;
+        let angle = this.body.angle;
         push();
-        this.renderP5();
-        //this.pushDioptres();  
-    
+        translate(pos.x, pos.y);
+        rotate(angle);
+        if (this.img) {
+            imageMode(CENTER);
+            image(this.img, 0, 0, this.r*2, this.r*2);
+        } else {
+            rectMode(CENTER);
+            fill(127);
+            circle(0, 0, this.r*2, this.r*2);
+        }
+        pop();
+        this.pushDioptres();
     }
-
+  
     this.rotatePt = function (Mx, My, Ox, Oy, angle) {
         // https://www.stashofcode.fr/rotation-dun-point-autour-dun-centre/
         var xM, yM, x, y;
