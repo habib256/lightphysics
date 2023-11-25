@@ -22,13 +22,20 @@ let balls = [];
 let ballsImg = [];
 let lights = [];
 let dioptres = [];
+let backgrounds = [];
+let backImg;
+
 
 function preload() {
+  let ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
   boxesImg.push(loadImage('graphics/crate01.jpg'));
   boxesImg.push(loadImage('graphics/crate02.png'));
-  ballsImg.push(loadImage('graphics/ballon.png'));
-  ballsImg.push(loadImage('graphics/basket.png'));
-  ballsImg.push(loadImage('graphics/bowling.png'));
+  ballImages.forEach(image => {
+    ballsImg.push(loadImage(`graphics/${image}`));
+  });
+  for (let i = 1; i <= 7; i++) {
+    backgrounds.push(loadImage(`graphics/mur0${i}.jpg`));
+  }
 } 
 
 function setup() {
@@ -36,18 +43,23 @@ function setup() {
   
   engine = Engine.create(); // Définir 'engine' avant d'appeler 'createWalls()'
   world = engine.world;
+
+  backImg = backgrounds[0];
   
   createWalls(); // Appeler 'createWalls()' après la définition de 'engine'
   resetDioptres();
 
-  let c = color(255, 255, 255, 20); // La couleur doit avoir un alpha de 20
-  lights.push(new Light(0,0, c, dioptres));
+  // La couleur doit avoir un alpha de 20
+  lights.push(new Light(0,0, color(255, 255, 255, 20), dioptres));
 
   Runner.run(Runner.create(), engine);
 }
 
 function draw() {
   background(0);
+  tint(255, 50);  // Appliquer une transparence
+  image(backImg, 0, 0);
+  tint(255, 255);  // Appliquer une transparence
   resetDioptres();
   manageObjects();
   drawBoxes();
@@ -83,7 +95,7 @@ function createWalls() {
 }
 
 function drawLights() {
-  lights[0].update(mouseX, mouseY);
+  lights[0].update(mouseX, mouseY-15);
 
   for (let light of lights) {
     light.show();

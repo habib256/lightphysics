@@ -8,7 +8,7 @@
 function Ball(x, y, r, options, ballsImg) {
     this.body = Bodies.circle(x, y, r, options);
     this.r = r;
-    this.img = ballsImg[Math.floor(Math.random() * 3)]; // Ajouté cette ligne
+    this.img = ballsImg[Math.floor(Math.random() * 4)]; // Ajouté cette ligne
     World.add(engine.world, this.body);
 
     this.getX = function () {
@@ -36,59 +36,30 @@ function Ball(x, y, r, options, ballsImg) {
         World.remove(world, this.body);
     }
 
-    this.renderP5 = function (){
-
-        let c = color(0, 0, 0);
-        let pos = this.body.position;
-        let angle = this.body.angle;
-        let layer = createGraphics(2*this.r, 2*this.r);
-        layer.noStroke();
-        layer.fill(255,255,255,255);
-        layer.circle(this.r, this.r, 2*this.r);
-        layer.stroke(color(0, 0, 0));
-        layer.line(this.r,this.r,this.r*cos(angle)+this.r,this.r*sin(angle)+this.r);
-        return layer;
-    }
-
-    this.render2D = function (ballimg){
-
-        let c = color(0, 0, 0);
-        let pos = this.body.position;
-        let angle = this.body.angle;
-        let layer = createGraphics(2*this.r, 2*this.r);
-        //layer.translate(this.r, this.r);
-        //layer.imageMode(CENTER);
-        //layer.rotate(angle);
-        //layer.image(ballimg,0,0,2*this.r,2*this.r);
-        //imageMode(CENTER);
-        layer.circle(this.r, this.r, 2*this.r);
-        return layer;
-    }
-
     this.pushDioptres = function () {
         let pos = this.body.position;
         let angle = this.body.angle;
-         // Fabriquer les dioptres de notre boite Rectangle a,b,c,d à mettre en rotation
-         let cx = this.body.position.x;
-         let cy = this.body.position.y;
-         let minx = cx - (this.w) / 2;
-         let maxx = cx + (this.w) / 2;
-         let miny = cy - (this.h) / 2;
-         let maxy = cy + (this.h) / 2;
- 
-         let a = this.rotatePt(minx, miny, cx, cy, angle);
-         let b = this.rotatePt(maxx, miny, cx, cy, angle);
-         let c = this.rotatePt(maxx, maxy, cx, cy, angle);
-         let d = this.rotatePt(minx, maxy, cx, cy, angle);
- 
-         let l1 = new Dioptre(a.x, a.y, b.x, b.y);
-         dioptres.push(l1);
-         let l2 = new Dioptre(b.x, b.y, c.x, c.y);
-         dioptres.push(l2);
-         let l3 = new Dioptre(c.x, c.y, d.x, d.y);
-         dioptres.push(l3);
-         let l4 = new Dioptre(d.x, d.y, a.x, a.y);
-         dioptres.push(l4);
+        let cx = this.body.position.x;
+        let cy = this.body.position.y;
+        let minx = cx - this.r;
+        let maxx = cx + this.r;
+        let miny = cy - this.r;
+        let maxy = cy + this.r;
+
+        let a = this.rotatePt(minx, miny, cx, cy, angle);
+        let b = this.rotatePt(maxx, miny, cx, cy, angle);
+        let c = this.rotatePt(maxx, maxy, cx, cy, angle);
+        let d = this.rotatePt(minx, maxy, cx, cy, angle);
+
+        let angleStep = 2 * Math.PI / 30;
+        for (let i = 0; i < 30; i++) {
+            let angle1 = i * angleStep;
+            let angle2 = ((i + 1) % 30) * angleStep;
+            let pt1 = this.rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, angle);
+            let pt2 = this.rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, angle);
+            let dioptre = new Dioptre(pt1.x, pt1.y, pt2.x, pt2.y);
+            dioptres.push(dioptre);
+        }
     }
 
     this.show = function () {
