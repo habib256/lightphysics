@@ -24,6 +24,7 @@ let lights = [];
 let dioptres = [];
 let backgrounds = [];
 let backImg;
+let lightImage;
 
 
 function preload() {
@@ -63,11 +64,12 @@ function draw() {
   updateDioptres();
   //drawDioptres();
 
+  blendMode(BLEND);
   background(0);
   //drawBackground();
   drawBoxes();
   drawBalls();
-  blendMode(BLEND);
+
   drawLights();
 
   Engine.update(engine);
@@ -118,6 +120,7 @@ function drawLights() {
     light.show();
   }
 }
+
 
 function drawDioptres() {
   for (let dioptre of dioptres) {

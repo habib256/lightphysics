@@ -13,8 +13,8 @@ class Light {
     this.rays = []; // Initialise un tableau pour stocker les rayons de la lumière
     this.closests = []; // Initialise un tableau pour stocker les points d'intersection les plus proches
     this.dioptres = dioptres;
+    this.lightImg = createGraphics(width, height);
   }
-
 
   update(x, y) { // Met à jour la position de la lumière
     this.pos.set(x, y);
@@ -48,7 +48,7 @@ class Light {
       }
     }
     let u, v;
-    let epsilon = 0.0001; // Choisissez une valeur appropriée pour votre cas
+    let epsilon = 0.001; // Choisissez une valeur appropriée pour votre cas
     for (let i = 2; i < this.closests.length; i++) {
       // Tester la colinéarité pour virer les points inutiles
       u = {
@@ -68,7 +68,7 @@ class Light {
   }
 
   renderBestRays() {
-    // Dessine le rayon de sa source à sa fin
+    // Dessine les meilleurs rayons de leur source à leur fin
     stroke(color(255,0,0,60));
     for (let i = 0; i < this.closests.length; i++) {
       line(this.pos.x, this.pos.y, this.closests[i].x, this.closests[i].y);
@@ -84,6 +84,22 @@ class Light {
       vertex(this.closests[i].x, this.closests[i].y);
     }
     endShape(CLOSE);
+  }
+  generateLightImg(){
+    this.generateBasicRays();
+    this.lookRayCollision(dioptres);
+
+    this.lightImg.clear();
+    this.lightImg.push();
+    this.lightImg.fill(this.color);
+    this.lightImg.noStroke();
+    this.lightImg.beginShape();
+    for (let i = 0; i < this.closests.length; i++) {
+      this.lightImg.vertex(this.closests[i].x, this.closests[i].y);
+    }
+    this.lightImg.endShape(CLOSE);
+    this.lightImg.pop();
+    return this.lightImg;
   }
 
   renderLightPolygonLimits() {
@@ -107,9 +123,9 @@ class Light {
   }
 
   show() {
-    this.generateBasicRays();
-    this.lookRayCollision(dioptres);
-    this.renderLightPolygon();
+    this.lightImg = this.generateLightImg();
+    image (this.lightImg, 0,0);
+    //this.renderLightPolygon();
     //this.renderBestRays();
     //this.renderLightPolygonLimits();
    
