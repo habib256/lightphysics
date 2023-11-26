@@ -72,7 +72,7 @@ function Ball(x, y, r, options, ballsImg) {
             circle(0, 0, this.r*2, this.r*2);
         }
         pop();
-        this.pushDioptres();
+        //this.pushDioptres();
     }
   
     this.rotatePt = function (Mx, My, Ox, Oy, angle) {

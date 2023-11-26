@@ -56,17 +56,20 @@ function setup() {
 }
 
 function draw() {
-  resetDioptres();
   manageObjects();
 
-  blendMode(BLEND);
-  drawBackground();
+  updateDioptres();
+  //drawDioptres();
+
+  background(0);
+  //drawBackground();
+
   drawBoxes();
   drawBalls();
-  blendMode(ADD);
+
+  //blendMode(ADD);
   drawLights();
 
-  //drawDioptres();
 
   Engine.update(engine);
 }
@@ -74,6 +77,27 @@ function drawBackground() {
   image(backImg, 0, 0);
 }
 
+function updateDioptres () {
+  resetDioptres();
+  for (let i = 0; i < boxes.length; i++) {
+    if (boxes[i].isOffScreen()) {
+      boxes[i].removeFromWorld();
+      boxes.splice(i, 1);
+      i--;
+    }
+    boxes[i].pushDioptres();
+  }
+  for (let i = balls.length - 1; i >= 0; i--) {
+    if (balls[i].isOffScreen()) {
+      balls[i].removeFromWorld();
+      balls.splice(i, 1);
+    } else {
+      balls[i].pushDioptres();
+      
+    }
+  }
+
+}
 function resetDioptres() {
   dioptres = [];
   // Limites de l'écran pour les rayons de lumière

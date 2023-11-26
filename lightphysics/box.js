@@ -50,7 +50,7 @@ function Box(x, y, w, h, options, BoxesImg) {
             rect(0, 0, this.w, this.h);
         }
         pop();
-        this.pushDioptres();
+        //this.pushDioptres();
     }
 
     this.pushDioptres = function () {
