@@ -5,11 +5,11 @@
 // This work started with the help of : Daniel Shiffman
 // https://thecodingtrain.com/CodingChallenges/145-2d-ray-casting.html
 
-function Paddle(x, y, w, h, options) {
-    this.body = Bodies.rectangle(x, y, w, h, options);
+function Paddle(x, y, w, h, options, mouseConstraint) {
+    this.body = Bodies.rectangle(x, y, w, h, options, dioptres);
     this.w = w;
     this.h = h;
-    World.add(engine.world, this.body);
+    World.add(engine.world, [this.body, mouseConstraint]);
 
     this.getX = function () {
         return this.body.position.x;
@@ -33,7 +33,20 @@ function Paddle(x, y, w, h, options) {
         World.remove(world, this.body);
     }
 
-    this.renderP5 = function () {
+    this.pushDioptres = function () {
+        let pos = this.body.position;
+        let angle = this.body.angle;
+        // Fabriquer les dioptres de notre Paddle
+        dioptres.push(new Dioptre(pos.x-this.w/2, pos.y+this.h/2, pos.x+this.w/2, pos.y+this.h/2));
+        dioptres.push(new Dioptre(pos.x+this.w/2, pos.y+this.h/2, pos.x+this.w/2, pos.y+this.h/2-this.h*2/3));
+        dioptres.push(new Dioptre(pos.x+this.w/2, pos.y+this.h/2-this.h*2/3,pos.x+this.w/4,pos.y+this.h/2-this.h ));    
+        dioptres.push(new Dioptre(pos.x+this.w/4,pos.y+this.h/2-this.h,pos.x-this.w/4,pos.y+this.h/2-this.h ));  
+        dioptres.push(new Dioptre(pos.x-this.w/4,pos.y+this.h/2-this.h,pos.x-this.w/2, pos.y+this.h/2-this.h*2/3));  
+        dioptres.push(new Dioptre(pos.x-this.w/2, pos.y+this.h/2-this.h*2/3,pos.x-this.w/2,pos.y+this.h/2 ));
+    }
+
+    this.show = function () {
+
         push();
         let pos = this.body.position;
         let angle = this.body.angle;
@@ -53,26 +66,6 @@ function Paddle(x, y, w, h, options) {
         endShape(CLOSE);
 
         pop();
-    }
-
-    this.pushDioptres = function () {
-        let pos = this.body.position;
-        let angle = this.body.angle;
-        // Fabriquer les dioptres de notre Paddle
-        dioptres.push(new Dioptre(pos.x-this.w/2, pos.y+this.h/2, pos.x+this.w/2, pos.y+this.h/2));
-        dioptres.push(new Dioptre(pos.x+this.w/2, pos.y+this.h/2, pos.x+this.w/2, pos.y+this.h/2-this.h*2/3));
-        dioptres.push(new Dioptre(pos.x+this.w/2, pos.y+this.h/2-this.h*2/3,pos.x+this.w/4,pos.y+this.h/2-this.h ));    
-        dioptres.push(new Dioptre(pos.x+this.w/4,pos.y+this.h/2-this.h,pos.x-this.w/4,pos.y+this.h/2-this.h ));  
-        dioptres.push(new Dioptre(pos.x-this.w/4,pos.y+this.h/2-this.h,pos.x-this.w/2, pos.y+this.h/2-this.h*2/3));  
-        dioptres.push(new Dioptre(pos.x-this.w/2, pos.y+this.h/2-this.h*2/3,pos.x-this.w/2,pos.y+this.h/2 ));
-    }
-
-
-
-    this.show = function () {
-
-        //this.renderP5();
-        this.pushDioptres();
 
     }
 
