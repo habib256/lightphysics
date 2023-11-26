@@ -111,7 +111,7 @@ class Light {
     this.lookRayCollision(dioptres);
     this.renderLightPolygon();
     //this.renderBestRays();
-    this.renderLightPolygonLimits();
+    //this.renderLightPolygonLimits();
    
   }
 }

@@ -50,7 +50,9 @@ function setup() {
   resetDioptres();
 
   // La couleur doit avoir un alpha de 20
-  lights.push(new Light(0,0, color(128, 128, 128, 200), dioptres));
+  lights.push(new Light(40,40, color(255, 255, 255, 100), dioptres));
+  lights.push(new Light(80,0, color(255, 255, 255, 100), dioptres));
+  lights.push(new Light(0,80, color(255, 255, 255, 100), dioptres));
 
   Runner.run(Runner.create(), engine);
 }
@@ -63,41 +65,24 @@ function draw() {
 
   background(0);
   //drawBackground();
-
   drawBoxes();
   drawBalls();
-
-  //blendMode(ADD);
+  blendMode(BLEND);
   drawLights();
 
-
   Engine.update(engine);
-}
-function drawBackground() {
-  image(backImg, 0, 0);
 }
 
 function updateDioptres () {
   resetDioptres();
   for (let i = 0; i < boxes.length; i++) {
-    if (boxes[i].isOffScreen()) {
-      boxes[i].removeFromWorld();
-      boxes.splice(i, 1);
-      i--;
-    }
     boxes[i].pushDioptres();
   }
   for (let i = balls.length - 1; i >= 0; i--) {
-    if (balls[i].isOffScreen()) {
-      balls[i].removeFromWorld();
-      balls.splice(i, 1);
-    } else {
       balls[i].pushDioptres();
-      
-    }
+  }
   }
 
-}
 function resetDioptres() {
   dioptres = [];
   // Limites de l'écran pour les rayons de lumière
@@ -124,9 +109,11 @@ function createWalls() {
   boxes.push(new Box(width / 2, height - 20, width - 400, 20, options, boxesImg));
 }
 
-function drawLights() {
-  lights[0].update(mouseX, mouseY-15);
+function drawBackground() {
+  image(backImg, 0, 0);
+}
 
+function drawLights() {
   for (let light of lights) {
     light.show();
   }
@@ -140,24 +127,13 @@ function drawDioptres() {
 
 function drawBoxes() {
   for (let i = 0; i < boxes.length; i++) {
-    if (boxes[i].isOffScreen()) {
-      boxes[i].removeFromWorld();
-      boxes.splice(i, 1);
-      i--;
-    }
     boxes[i].show();
   }
 }
 
 function drawBalls() {
   for (let i = balls.length - 1; i >= 0; i--) {
-    if (balls[i].isOffScreen()) {
-      balls[i].removeFromWorld();
-      balls.splice(i, 1);
-    } else {
       balls[i].show();
-      
-    }
   }
 }
 
@@ -174,12 +150,24 @@ function generateBall(x, y, r, options, ballsImg) {
 }
 
 function manageObjects() {
-  if (frameCount % 60 == 0) {
+  manageOffScreenObjects(boxes);
+  manageOffScreenObjects(balls);
+
+  if (frameCount % 120 == 0) {
     
     if (Math.random() < 0.5) {
       generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
     } else {
       generateBall(random(200, width - 150), 0, random(10, 50), {timeScale: 1}, ballsImg);
+    }
+  }
+
+  function manageOffScreenObjects(objects) {
+    for (let i = objects.length - 1; i >= 0; i--) {
+      if (objects[i].isOffScreen()) {
+        objects[i].removeFromWorld();
+        objects.splice(i, 1);
+      }
     }
   }
 }
