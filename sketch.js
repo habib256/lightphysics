@@ -51,7 +51,6 @@ function setup() {
   resetDioptres();
 
   // La couleur doit avoir un alpha de 20
-  lights.push(new Light(40,40, color(255, 255, 255, 100), dioptres));
   lights.push(new Light(80,0, color(255, 255, 255, 100), dioptres));
   lights.push(new Light(0,80, color(255, 255, 255, 100), dioptres));
 
