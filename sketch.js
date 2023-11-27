@@ -25,7 +25,7 @@ let dioptres = [];
 let backgrounds = [];
 let backImg;
 let lightImage;
-
+let mouseConstraint; // Added this line
 
 function preload() {
   let ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
@@ -45,14 +45,37 @@ function setup() {
   engine = Engine.create(); // Définir 'engine' avant d'appeler 'createWalls()'
   world = engine.world;
 
+  // Create a Mouse object from the HTML Canvas element
+  let mouse = Mouse.create(canvas.elt);
+
+  // Adjust the mouse's coordinates to match those of the canvas
+  mouse.pixelRatio = pixelDensity();
+
+  let options = {
+    mouse: mouse
+  };
+
+  // Create a MouseConstraint with the engine and the options
+  mouseConstraint = MouseConstraint.create(engine, options);
+
+  // Add the MouseConstraint to the world
+  World.add(world, mouseConstraint); // Added this block of code
+
   backImg = backgrounds[4];
   
   createWalls(); // Appeler 'createWalls()' après la définition de 'engine'
   resetDioptres();
 
-  // La couleur doit avoir un alpha de 20
-  lights.push(new Light(80,0, color(255, 255, 255, 100), dioptres));
-  lights.push(new Light(0,80, color(255, 255, 255, 100), dioptres));
+  // Créer un cercle de lumière de centre 
+  let centreX = 30;
+  let centreY = 30;
+  let rayon = 20;
+  for (let i = 0; i < 3; i++) {
+    let angle = TWO_PI / 3 * i;
+    let x = centreX + cos(angle) * rayon;
+    let y = centreY + sin(angle) * rayon;
+    lights.push(new Light(x, y, color(255, 255, 255, 50), dioptres));
+  }
 
   Runner.run(Runner.create(), engine);
 }
@@ -95,8 +118,8 @@ function resetDioptres() {
 
 function mouseClicked() {
   
-  let ball = new Ball(mouseX, mouseY, random(20, 40),{restitution : 0.8}, ballsImg);
-  balls.push(ball);
+  //let ball = new Ball(mouseX, mouseY, random(20, 40),{restitution : 0.8}, ballsImg);
+  //balls.push(ball);
 
 }
 
@@ -155,7 +178,7 @@ function manageObjects() {
   manageOffScreenObjects(boxes);
   manageOffScreenObjects(balls);
 
-  if (frameCount % 120 == 0) {
+  if (frameCount % 80 == 0) {
     
     if (Math.random() < 0.5) {
       generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
