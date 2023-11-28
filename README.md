@@ -10,4 +10,4 @@ C'est un projet de simulation physique utilisant la bibliothèque Matter.js pour
 ## Version en ligne
 
 Vous pouvez tester la version en ligne à l'adresse suivante :
-[Lien vers la version en ligne](https://habib256.github.io/myphysics/)
+[Lien vers la version en ligne](https://habib256.github.io/lightphysics/)
