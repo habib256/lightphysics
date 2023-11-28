@@ -1,4 +1,4 @@
-# myphysics
+# lightphysics
 
 C'est un projet de simulation physique utilisant la bibliothèque Matter.js pour la gestion de la physique et p5.js pour le rendu. Il gère aussi du raycasting 2D.
 
