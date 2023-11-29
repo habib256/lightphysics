@@ -17,6 +17,7 @@ let world;
 let balls = [];
 let ballsImg = [];
 let lights = [];
+let rays = [];
 let dioptres = [];
 let lightImage;
 let canvasCentre;
@@ -39,11 +40,11 @@ function setup() {
   resetDioptres();
 
   // Créer un cercle de lumière de centre 
-    lights.push(new Light(canvasCentre.x, canvasCentre.y, color(255, 255, 255, 128), dioptres));
-    lights[0].showRays = true;
+  lights.push(new Light(canvasCentre.x, canvasCentre.y, color(255, 255, 255, 128), dioptres, rays));
+  lights[0].showRays = true;
 
-  balls.push(new Ball(80, 80, 40, {airFriction : 0,friction: 0, restitution: 1}, ballsImg));
-  balls.push(new Ball(100, 80, 10, {airFriction : 0,friction: 0, restitution: 1}, ballsImg));
+  balls.push(new Ball(80, 80, 40, { airFriction: 0, friction: 0, restitution: 1 }, ballsImg));
+  balls.push(new Ball(100, 80, 10, { airFriction: 0, friction: 0, restitution: 1 }, ballsImg));
 
   // Supprimer la gravité
   engine.world.gravity.y = 0;
@@ -113,11 +114,11 @@ function generateBall(x, y, r, options, ballsImg) {
 function manageObjects() {
   //manageOffScreenObjects(balls);
 
-  balls[0].body.position.x = 150*cos(time)+ canvasCentre.x ;
-  balls[0].body.position.y = 150*sin(time) + canvasCentre.y ;
-  balls[1].body.position.x = 100*cos(3*time) + balls[0].body.position.x;
-  balls[1].body.position.y = 100*sin(3*time) + balls[0].body.position.y;
-  time= time+0.01;
+  balls[0].body.position.x = 150 * cos(time) + canvasCentre.x;
+  balls[0].body.position.y = 150 * sin(time) + canvasCentre.y;
+  balls[1].body.position.x = 100 * cos(3 * time) + balls[0].body.position.x;
+  balls[1].body.position.y = 100 * sin(3 * time) + balls[0].body.position.y;
+  time = time + 0.01;
 }
 
 function manageOffScreenObjects(objects) {

@@ -7,10 +7,10 @@
 
 
 class Light {
-  constructor(x, y, color, dioptres) {
+  constructor(x, y, color, dioptres,rays) {
     this.pos = createVector(x, y); // Initialise la position de la lumière
     this.color = color; // Initialise la couleur de la lumière
-    this.rays = []; // Initialise un tableau pour stocker les rayons de la lumière
+    this.rays = rays; // Initialise un tableau pour stocker les rayons de la lumière
     this.dioptres = dioptres;
     this.lightImg = createGraphics(width, height);
     this.showRays = false;
@@ -27,7 +27,7 @@ class Light {
   }
   generateBasicRays() {
     this.rays = [];
-    for (let a = 0; a < 360; a += 1) {
+    for (let a = 0; a < 360; a += 0.6) {
       this.rays.push(new Ray(this.pos, radians(a), this.color));
     }
   }
@@ -80,7 +80,7 @@ class Light {
   }
   renderBestRays() {
     // Dessine les meilleurs rayons de leur source à leur fin
-    this.cleanBadRays();
+    //this.cleanBadRays();
     stroke(color(255, 0, 0, 255));
     for (let ray of this.rays) {
       ray.show();
@@ -88,7 +88,8 @@ class Light {
   }
 
   cleanBadRays() {
-    let epsilon = 15; // Choisissez une valeur appropriée pour votre cas
+    let epsilon = 20; // Choisissez une valeur appropriée pour votre cas
+
     for (let i = 1; i < this.rays.length - 1; i++) {
       let prev = this.rays[i - 1];
       let current = this.rays[i];
@@ -104,6 +105,8 @@ class Light {
         i--; // Ajuster l'index après la suppression d'un élément
       }
     }
+    this.rays.splice(0, 1);
+    this.rays.splice(this.rays.length - 1, 1);
   }
 
 
