@@ -39,13 +39,8 @@ function setup() {
   resetDioptres();
 
   // Créer un cercle de lumière de centre 
-  let rayon = 3;
-  for (let i = 0; i < 3; i++) {
-    let angle = TWO_PI / 3 * i;
-    let x = canvasCentre.x + cos(angle) * rayon;
-    let y = canvasCentre.y + sin(angle) * rayon;
-    lights.push(new Light(x, y, color(255, 255, 255, 50), dioptres));
-  }
+    lights.push(new Light(canvasCentre.x, canvasCentre.y, color(255, 255, 255, 128), dioptres));
+    lights[0].showRays = true;
 
   balls.push(new Ball(80, 80, 40, {airFriction : 0,friction: 0, restitution: 1}, ballsImg));
   balls.push(new Ball(100, 80, 10, {airFriction : 0,friction: 0, restitution: 1}, ballsImg));

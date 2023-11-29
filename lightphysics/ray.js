@@ -11,6 +11,7 @@ class Ray {
     this.pos = pos;
     this.dir = p5.Vector.fromAngle(angle);
     this.color = color;
+    this.end = this.pos; // J'initialise un rayon à sa source pour éviter les undefined
   }
 
   lookAt(x, y) {
@@ -22,29 +23,45 @@ class Ray {
   updateColor(color) {
     this.color = color;
   }
- show() {
-    stroke(this.color);
-    push();
-    translate(this.pos.x, this.pos.y);
-    line(0, 0, this.dir.x * 1000, this.dir.y * 1000);
-    pop();
- }
 
- calculateIntersection(dioptres) {
-  let closest = null;
-  let record = Infinity;
-  for (let dioptre of dioptres) {
-    const pt = this.cast(dioptre);
-    if (pt) {
-      const d = p5.Vector.dist(this.pos, pt);
-      if (d < record) {
-        record = d;
-        closest = pt;
+  update(end) {
+    this.end = end;
+  }
+
+  show() {
+    stroke(255,0,0,255);
+    line(this.pos.x,this.pos.y, this.end.x, this.end.y);
+    let midX = (this.pos.x + this.end.x) / 2;
+      let midY = (this.pos.y + this.end.y) / 2;
+      let dx = this.end.x - this.pos.x;
+      let dy = this.end.y - this.pos.y;
+      let angle = Math.atan2(dy, dx);
+      let arrowSize = 2;
+      push();
+      translate(midX, midY);
+      rotate(angle);
+      line(0, 0, -arrowSize, -arrowSize);
+      line(0, 0, -arrowSize, arrowSize);
+      pop();
+  }
+
+  calculateIntersection(dioptres) {
+    let closest = null;
+    let record = Infinity;
+    for (let dioptre of dioptres) {
+      const pt = this.cast(dioptre);
+      if (pt) {
+        const d = p5.Vector.dist(this.pos, pt);
+        if (d < record) {
+          record = d;
+          closest = pt;
+          this.end = closest;
+        }
       }
     }
+    
+    return closest;
   }
-  return closest;
-}
 
   cast(surface) {
     const x1 = surface.a.x;

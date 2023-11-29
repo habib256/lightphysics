@@ -76,6 +76,7 @@ function setup() {
     let y = centreY + sin(angle) * rayon;
     lights.push(new Light(x, y, color(255, 255, 255, 50), dioptres));
   }
+  //lights[0].showRays = true;
 
   Runner.run(Runner.create(), engine);
 }

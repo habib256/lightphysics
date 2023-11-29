@@ -18,7 +18,7 @@ let engine;
 let world;
 
 let boxes = [];
-let boxesImg= [];
+let boxesImg = [];
 let balls = [];
 let ballsImg = [];
 let paddle = Bodies.rectangle(400, 600, 80, 20, { isStatic: true });
@@ -37,7 +37,7 @@ function preload() {
   boxesImg.push(loadImage('graphics/crate01.jpg'));
   boxesImg.push(loadImage('graphics/crate02.png'));
   ballImages.forEach(image => {
-  ballsImg.push(loadImage(`graphics/${image}`));
+    ballsImg.push(loadImage(`graphics/${image}`));
   });
   for (let i = 1; i <= 7; i++) {
     backgrounds.push(loadImage(`graphics/mur0${i}.jpg`));
@@ -45,16 +45,6 @@ function preload() {
   songs.push(loadSound('music/rebond.wav'));
   songs.push(loadSound('music/rebond2.wav'));
   songs.push(loadSound('music/rebond3.wav'));
-}
-
-function updateDioptres () {
-  resetDioptres();
-  for (let i = 0; i < boxes.length; i++) {
-    boxes[i].pushDioptres();
-  }
- // for (let i = balls.length - 1; i >= 0; i--) {
-  //    balls[i].pushDioptres();
-  //}
 }
 
 function setup() {
@@ -67,11 +57,11 @@ function setup() {
   let light = new Light(width / 2, height / 2, color(255, 255, 255, 64), dioptres);
   lights.push(light);
 
-  for(let i=0; i< 4; i++) {
-    let light = new Light((width / 4)*(4-i), 10, color(255, 255, 255, 50), dioptres);
+  for (let i = 0; i < 4; i++) {
+    let light = new Light((width / 4) * (4 - i), 10, color(255, 255, 255, 50), dioptres);
     lights.push(light);
   }
- 
+
   selectimage = floor(random(0, backgrounds.length));
 
   //create runner
@@ -143,8 +133,8 @@ function setupPaddle(options) {
   var options = {
     isStatic: false,
     timeScale: 1,
-    friction : 0.001,
-    restitution : 1
+    friction: 0.001,
+    restitution: 1
   }
   let mouseConstraint = MouseConstraint.create(engine, {
     constraint: {
@@ -203,7 +193,7 @@ function draw() {
   v = sqrt(vx * vx + vy * vy);
   if (v > 10) { vx = vx * 0.9; vy = vy * 0.9; }
   if (v < 3) { vx = vx * 1.2; vy = vy * 1.2; }
-  MyBody.setVelocity(balls[0].body, { x: vx, y: vy }); 
+  MyBody.setVelocity(balls[0].body, { x: vx, y: vy });
 
   if (boxes.length === 1) {
     // Recrée les briques
@@ -214,17 +204,23 @@ function draw() {
     setupBricks(options);
   }
 
- lights[0].update(balls[0].getX(), balls[0].getY());
+  lights[0].update(balls[0].getX(), balls[0].getY());
 
 
- drawBoxes();
- drawBalls();
- drawPaddle();
- drawLights();
- 
+  drawBoxes();
+  drawBalls();
+  drawPaddle();
+  drawLights();
+
   Engine.update(engine);
 }
 
+function updateDioptres() {
+  resetDioptres();
+  for (let i = 0; i < boxes.length; i++) {
+    boxes[i].pushDioptres();
+  }
+}
 
 function resetDioptres() {
   dioptres = [];
@@ -269,7 +265,7 @@ function drawBalls() {
     }
   }
 }
-function drawPaddle(){
-paddle.pushDioptres();
-paddle.show();
+function drawPaddle() {
+  paddle.pushDioptres();
+  paddle.show();
 }
