@@ -11,7 +11,7 @@ class Ray {
     this.pos = pos;
     this.dir = p5.Vector.fromAngle(angle);
     this.color = color;
-    this.end = this.pos;
+    this.end = { x: pos.x, y: pos.y };
   }
 
   lookAt(x, y) {
@@ -45,46 +45,92 @@ class Ray {
     pop();
   }
 
-  calculateIntersection(dioptres) {
-    let closest = null;
+  calculateIntersection(dioptres, dioptreCount) {
     let record = Infinity;
-    for (const dioptre of dioptres) {
-      const pt = this.cast(dioptre);
-      if (pt) {
-        const d = p5.Vector.dist(this.pos, pt);
-        if (d < record) {
-          record = d;
-          closest = pt;
-          this.end = closest;
+    const posX = this.pos.x;
+    const posY = this.pos.y;
+    const dirX = this.dir.x;
+    const dirY = this.dir.y;
+    const x3 = posX;
+    const y3 = posY;
+    const x4 = posX + dirX;
+    const y4 = posY + dirY;
+    const count = dioptreCount !== undefined ? dioptreCount : dioptres.length;
+
+    this.end.x = posX;
+    this.end.y = posY;
+
+    for (let i = 0; i < count; i++) {
+      const surface = dioptres[i];
+      const x1 = surface.ax;
+      const y1 = surface.ay;
+      const x2 = surface.bx;
+      const y2 = surface.by;
+
+      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (Math.abs(den) < 1e-10) {
+        continue;
+      }
+
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+      if (t > 0 && t < 1 && u > 0) {
+        const ptX = x1 + t * (x2 - x1);
+        const ptY = y1 + t * (y2 - y1);
+        const dx = ptX - posX;
+        const dy = ptY - posY;
+        const dSq = dx * dx + dy * dy;
+        if (dSq < record) {
+          record = dSq;
+          this.end.x = ptX;
+          this.end.y = ptY;
         }
       }
     }
-    return closest;
   }
 
-  cast(surface) {
-    const x1 = surface.a.x;
-    const y1 = surface.a.y;
-    const x2 = surface.b.x;
-    const y2 = surface.b.y;
+  calculateIntersectionWithGrid(dioptres, grid) {
+    let record = Infinity;
+    const posX = this.pos.x;
+    const posY = this.pos.y;
+    const dirX = this.dir.x;
+    const dirY = this.dir.y;
+    const x3 = posX;
+    const y3 = posY;
+    const x4 = posX + dirX;
+    const y4 = posY + dirY;
 
-    const x3 = this.pos.x;
-    const y3 = this.pos.y;
-    const x4 = this.pos.x + this.dir.x;
-    const y4 = this.pos.y + this.dir.y;
+    this.end.x = posX;
+    this.end.y = posY;
 
-    const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-    if (Math.abs(den) < 1e-10) {
-      return;
-    }
+    const indices = grid.getDioptresForRay(posX, posY, dirX, dirY);
 
-    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-    if (t > 0 && t < 1 && u > 0) {
-      const pt = createVector();
-      pt.x = x1 + t * (x2 - x1);
-      pt.y = y1 + t * (y2 - y1);
-      return pt;
+    for (let i = 0; i < indices.length; i++) {
+      const surface = dioptres[indices[i]];
+      const x1 = surface.ax;
+      const y1 = surface.ay;
+      const x2 = surface.bx;
+      const y2 = surface.by;
+
+      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (Math.abs(den) < 1e-10) {
+        continue;
+      }
+
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+      if (t > 0 && t < 1 && u > 0) {
+        const ptX = x1 + t * (x2 - x1);
+        const ptY = y1 + t * (y2 - y1);
+        const dx = ptX - posX;
+        const dy = ptY - posY;
+        const dSq = dx * dx + dy * dy;
+        if (dSq < record) {
+          record = dSq;
+          this.end.x = ptX;
+          this.end.y = ptY;
+        }
+      }
     }
   }
 }
