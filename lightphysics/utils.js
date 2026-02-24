@@ -13,23 +13,36 @@ function rotatePt(Mx, My, Ox, Oy, cosA, sinA) {
     };
 }
 
+let dioptreCount = 0;
+
 function resetDioptres() {
-    dioptres.length = 0;
-    dioptres.push(new Dioptre(0, 0, width, 0));
-    dioptres.push(new Dioptre(width, 0, width, height));
-    dioptres.push(new Dioptre(width, height, 0, height));
-    dioptres.push(new Dioptre(0, height, 0, 0));
+    dioptreCount = 0;
+    pushDioptre(0, 0, width, 0);
+    pushDioptre(width, 0, width, height);
+    pushDioptre(width, height, 0, height);
+    pushDioptre(0, height, 0, 0);
+}
+
+function pushDioptre(x1, y1, x2, y2) {
+    if (dioptreCount < dioptres.length) {
+        dioptres[dioptreCount].set(x1, y1, x2, y2);
+    } else {
+        dioptres.push(new Dioptre(x1, y1, x2, y2));
+    }
+    dioptreCount++;
 }
 
 function drawLights() {
+    blendMode(ADD);
     for (const light of lights) {
         light.show();
     }
+    blendMode(BLEND);
 }
 
 function drawDioptres() {
-    for (const dioptre of dioptres) {
-        dioptre.show();
+    for (let i = 0; i < dioptreCount; i++) {
+        dioptres[i].show();
     }
 }
 

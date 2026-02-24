@@ -16,12 +16,12 @@ class Paddle extends PhysicsObject {
 
     pushDioptres() {
         const pos = this.body.position;
-        dioptres.push(new Dioptre(pos.x - this.w / 2, pos.y + this.h / 2, pos.x + this.w / 2, pos.y + this.h / 2));
-        dioptres.push(new Dioptre(pos.x + this.w / 2, pos.y + this.h / 2, pos.x + this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3));
-        dioptres.push(new Dioptre(pos.x + this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3, pos.x + this.w / 4, pos.y + this.h / 2 - this.h));
-        dioptres.push(new Dioptre(pos.x + this.w / 4, pos.y + this.h / 2 - this.h, pos.x - this.w / 4, pos.y + this.h / 2 - this.h));
-        dioptres.push(new Dioptre(pos.x - this.w / 4, pos.y + this.h / 2 - this.h, pos.x - this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3));
-        dioptres.push(new Dioptre(pos.x - this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3, pos.x - this.w / 2, pos.y + this.h / 2));
+        pushDioptre(pos.x - this.w / 2, pos.y + this.h / 2, pos.x + this.w / 2, pos.y + this.h / 2);
+        pushDioptre(pos.x + this.w / 2, pos.y + this.h / 2, pos.x + this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3);
+        pushDioptre(pos.x + this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3, pos.x + this.w / 4, pos.y + this.h / 2 - this.h);
+        pushDioptre(pos.x + this.w / 4, pos.y + this.h / 2 - this.h, pos.x - this.w / 4, pos.y + this.h / 2 - this.h);
+        pushDioptre(pos.x - this.w / 4, pos.y + this.h / 2 - this.h, pos.x - this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3);
+        pushDioptre(pos.x - this.w / 2, pos.y + this.h / 2 - this.h * 2 / 3, pos.x - this.w / 2, pos.y + this.h / 2);
     }
 
     show() {

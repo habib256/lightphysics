@@ -25,6 +25,7 @@ let dioptres = [];
 let backgrounds = [];
 let backImg;
 let mouseConstraint;
+let spatialGrid;
 
 function preload() {
   const ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
@@ -51,6 +52,8 @@ function setup() {
   World.add(world, mouseConstraint);
 
   backImg = backgrounds[4];
+
+  spatialGrid = new SpatialGrid(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT, CONFIG.GRID_CELL_SIZE);
 
   createWalls();
   resetDioptres();
@@ -80,6 +83,14 @@ function draw() {
 
   drawLights();
 
+  if (CONFIG.SHOW_FPS) {
+    blendMode(BLEND);
+    noStroke();
+    fill(255, 255, 0);
+    textSize(14);
+    text('FPS: ' + frameRate().toFixed(1), 10, 20);
+  }
+
   Engine.update(engine);
 }
 
@@ -90,6 +101,11 @@ function updateDioptres() {
   }
   for (let i = balls.length - 1; i >= 0; i--) {
     balls[i].pushDioptres();
+  }
+  spatialGrid.updateMaxDioptres(dioptreCount);
+  spatialGrid.build(dioptres, dioptreCount);
+  for (const light of lights) {
+    light.grid = spatialGrid;
   }
 }
 

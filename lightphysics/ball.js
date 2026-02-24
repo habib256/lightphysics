@@ -33,7 +33,7 @@ class Ball extends PhysicsObject {
             const angle2 = ((i + 1) % CONFIG.BALL_SEGMENTS) * angleStep;
             const pt1 = rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, cosA, sinA);
             const pt2 = rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, cosA, sinA);
-            dioptres.push(new Dioptre(pt1.x, pt1.y, pt2.x, pt2.y));
+            pushDioptre(pt1.x, pt1.y, pt2.x, pt2.y);
         }
     }
 

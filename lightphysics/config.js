@@ -18,4 +18,6 @@ const CONFIG = Object.freeze({
     VELOCITY_BOOST: 1.2,
     BREAKOUT_BALL_VELOCITY: 3,
     BREAKOUT_BALL_RADIUS: 8,
+    GRID_CELL_SIZE: 80,
+    SHOW_FPS: true,
 });

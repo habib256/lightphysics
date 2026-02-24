@@ -52,9 +52,9 @@ class Box extends PhysicsObject {
         const c = rotatePt(maxx, maxy, cx, cy, cosA, sinA);
         const d = rotatePt(minx, maxy, cx, cy, cosA, sinA);
 
-        dioptres.push(new Dioptre(a.x, a.y, b.x, b.y));
-        dioptres.push(new Dioptre(b.x, b.y, c.x, c.y));
-        dioptres.push(new Dioptre(c.x, c.y, d.x, d.y));
-        dioptres.push(new Dioptre(d.x, d.y, a.x, a.y));
+        pushDioptre(a.x, a.y, b.x, b.y);
+        pushDioptre(b.x, b.y, c.x, c.y);
+        pushDioptre(c.x, c.y, d.x, d.y);
+        pushDioptre(d.x, d.y, a.x, a.y);
     }
 }

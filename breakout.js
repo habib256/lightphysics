@@ -28,6 +28,7 @@ let lights = [];
 let backgrounds = [];
 
 let songs = [];
+let spatialGrid;
 
 function preload() {
   const ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
@@ -49,6 +50,8 @@ function setup() {
   engine = Engine.create();
   world = engine.world;
   engine.world.gravity.y = 0;
+
+  spatialGrid = new SpatialGrid(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT, CONFIG.GRID_CELL_SIZE);
 
   lights.push(new Light(width / 2, height / 2, color(255, 255, 255, 64), dioptres));
 
@@ -182,6 +185,14 @@ function draw() {
   drawPaddle();
   drawLights();
 
+  if (CONFIG.SHOW_FPS) {
+    blendMode(BLEND);
+    noStroke();
+    fill(255, 255, 0);
+    textSize(14);
+    text('FPS: ' + frameRate().toFixed(1), 10, 20);
+  }
+
   Engine.update(engine);
 }
 
@@ -189,6 +200,12 @@ function updateDioptres() {
   resetDioptres();
   for (let i = 0; i < boxes.length; i++) {
     boxes[i].pushDioptres();
+  }
+  paddle.pushDioptres();
+  spatialGrid.updateMaxDioptres(dioptreCount);
+  spatialGrid.build(dioptres, dioptreCount);
+  for (const light of lights) {
+    light.grid = spatialGrid;
   }
 }
 
@@ -215,6 +232,5 @@ function drawBalls() {
 }
 
 function drawPaddle() {
-  paddle.pushDioptres();
   paddle.show();
 }
