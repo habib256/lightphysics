@@ -5,39 +5,20 @@
 // This work started with the help of : Daniel Shiffman
 // https://thecodingtrain.com/CodingChallenges/145-2d-ray-casting.html
 
-function Box(x, y, w, h, options, BoxesImg) {
-    this.body = Bodies.rectangle(x, y, w, h, options);
-    this.w = w;
-    this.h = h;
-    this.img = BoxesImg[Math.floor(Math.random() * 2)];
-    World.add(engine.world, this.body);
-
-    this.getX = function () {
-        return this.body.position.x;
-    }
-    this.getY = function () {
-        return this.body.position.y;
-    }
-    this.getVX = function () {
-        return this.body.velocity.x;
-    }
-    this.getVY = function () {
-        return this.body.velocity.y;
+class Box extends PhysicsObject {
+    constructor(x, y, w, h, options, boxesImg) {
+        const body = Bodies.rectangle(x, y, w, h, options);
+        super(body);
+        this.w = w;
+        this.h = h;
+        this.img = (boxesImg && boxesImg.length > 0)
+            ? boxesImg[Math.floor(Math.random() * boxesImg.length)]
+            : null;
     }
 
-    this.isOffScreen = function () {
-        var pos = this.body.position;
-        return (pos.y > height + 100);
-    }
-
-    this.removeFromWorld = function () 
-    {
-        World.remove(world, this.body);
-    }
-
-    this.show = function () {
-        let pos = this.body.position;
-        let angle = this.body.angle;
+    show() {
+        const pos = this.body.position;
+        const angle = this.body.angle;
         push();
         translate(pos.x, pos.y);
         rotate(angle);
@@ -50,44 +31,30 @@ function Box(x, y, w, h, options, BoxesImg) {
             rect(0, 0, this.w, this.h);
         }
         pop();
-        //this.pushDioptres();
     }
 
-    this.pushDioptres = function () {
-        let pos = this.body.position;
-        let angle = this.body.angle;
-        // Fabriquer les dioptres de notre boite Rectangle a,b,c,d à mettre en rotation
-        let cx = this.body.position.x;
-        let cy = this.body.position.y;
-        let minx = cx - (this.w) / 2;
-        let maxx = cx + (this.w) / 2;
-        let miny = cy - (this.h) / 2;
-        let maxy = cy + (this.h) / 2;
+    pushDioptres() {
+        const angle = this.body.angle;
+        const cx = this.body.position.x;
+        const cy = this.body.position.y;
+        const halfW = this.w / 2;
+        const halfH = this.h / 2;
+        const minx = cx - halfW;
+        const maxx = cx + halfW;
+        const miny = cy - halfH;
+        const maxy = cy + halfH;
 
-        let a = this.rotatePt(minx, miny, cx, cy, angle);
-        let b = this.rotatePt(maxx, miny, cx, cy, angle);
-        let c = this.rotatePt(maxx, maxy, cx, cy, angle);
-        let d = this.rotatePt(minx, maxy, cx, cy, angle);
+        const cosA = Math.cos(-angle);
+        const sinA = Math.sin(-angle);
 
-        let l1 = new Dioptre(a.x, a.y, b.x, b.y);
-        dioptres.push(l1);
-        let l2 = new Dioptre(b.x, b.y, c.x, c.y);
-        dioptres.push(l2);
-        let l3 = new Dioptre(c.x, c.y, d.x, d.y);
-        dioptres.push(l3);
-        let l4 = new Dioptre(d.x, d.y, a.x, a.y);
-        dioptres.push(l4);
-    }
+        const a = rotatePt(minx, miny, cx, cy, cosA, sinA);
+        const b = rotatePt(maxx, miny, cx, cy, cosA, sinA);
+        const c = rotatePt(maxx, maxy, cx, cy, cosA, sinA);
+        const d = rotatePt(minx, maxy, cx, cy, cosA, sinA);
 
-    this.rotatePt = function (Mx, My, Ox, Oy, angle) {
-        // https://www.stashofcode.fr/rotation-dun-point-autour-dun-centre/
-        var xM, yM, x, y;
-        // angle *= Math.PI / 180;
-        angle = -angle;
-        xM = Mx - Ox;
-        yM = My - Oy;
-        x = xM * Math.cos(angle) + yM * Math.sin(angle) + Ox;
-        y = - xM * Math.sin(angle) + yM * Math.cos(angle) + Oy;
-        return ({ x: Math.round(x), y: Math.round(y) });
+        dioptres.push(new Dioptre(a.x, a.y, b.x, b.y));
+        dioptres.push(new Dioptre(b.x, b.y, c.x, c.y));
+        dioptres.push(new Dioptre(c.x, c.y, d.x, d.y));
+        dioptres.push(new Dioptre(d.x, d.y, a.x, a.y));
     }
 }

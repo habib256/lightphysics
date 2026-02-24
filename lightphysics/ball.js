@@ -5,85 +5,52 @@
 // This work started with the help of : Daniel Shiffman
 // https://thecodingtrain.com/CodingChallenges/145-2d-ray-casting.html
 
-function Ball(x, y, r, options, ballsImg) {
-    this.body = Bodies.circle(x, y, r, options);
-    this.r = r;
-    this.img = ballsImg[Math.floor(Math.random() * 4)]; // Ajouté cette ligne
-    World.add(engine.world, this.body);
+class Ball extends PhysicsObject {
+    constructor(x, y, r, options, ballsImg) {
+        const body = Bodies.circle(x, y, r, options);
+        super(body);
+        this.r = r;
+        this.img = (ballsImg && ballsImg.length > 0)
+            ? ballsImg[Math.floor(Math.random() * ballsImg.length)]
+            : null;
+    }
 
-    this.getX = function () {
-        return this.body.position.x;
-    }
-    this.getY = function () {
-        return this.body.position.y;
-    }
-    this.getR = function () {
+    getR() {
         return this.r;
     }
-    this.getVX = function () {
-        return this.body.velocity.x;
-    }
-    this.getVY = function () {
-        return this.body.velocity.y;
-    }
-    this.isOffScreen = function () {
-        var pos = this.body.position;
-        return (pos.y > height + 100);
-    }
 
-    this.removeFromWorld = function () 
-    {
-        World.remove(world, this.body);
-    }
+    pushDioptres() {
+        const angle = this.body.angle;
+        const cx = this.body.position.x;
+        const cy = this.body.position.y;
 
-    this.pushDioptres = function () {
-        let pos = this.body.position;
-        let angle = this.body.angle;
-        let cx = this.body.position.x;
-        let cy = this.body.position.y;
-        let minx = cx - this.r;
-        let maxx = cx + this.r;
-        let miny = cy - this.r;
-        let maxy = cy + this.r;
+        const cosA = Math.cos(-angle);
+        const sinA = Math.sin(-angle);
 
-        let angleStep = 2 * Math.PI / 30;
-        for (let i = 0; i < 30; i++) {
-            let angle1 = i * angleStep;
-            let angle2 = ((i + 1) % 30) * angleStep;
-            let pt1 = this.rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, angle);
-            let pt2 = this.rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, angle);
-            let dioptre = new Dioptre(pt1.x, pt1.y, pt2.x, pt2.y);
-            dioptres.push(dioptre);
+        const angleStep = 2 * Math.PI / CONFIG.BALL_SEGMENTS;
+        for (let i = 0; i < CONFIG.BALL_SEGMENTS; i++) {
+            const angle1 = i * angleStep;
+            const angle2 = ((i + 1) % CONFIG.BALL_SEGMENTS) * angleStep;
+            const pt1 = rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, cosA, sinA);
+            const pt2 = rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, cosA, sinA);
+            dioptres.push(new Dioptre(pt1.x, pt1.y, pt2.x, pt2.y));
         }
     }
 
-    this.show = function () {
-        let pos = this.body.position;
-        let angle = this.body.angle;
+    show() {
+        const pos = this.body.position;
+        const angle = this.body.angle;
         push();
         translate(pos.x, pos.y);
         rotate(angle);
         if (this.img) {
             imageMode(CENTER);
-            image(this.img, 0, 0, this.r*2, this.r*2);
+            image(this.img, 0, 0, this.r * 2, this.r * 2);
         } else {
             rectMode(CENTER);
             fill(127);
-            circle(0, 0, this.r*2, this.r*2);
+            circle(0, 0, this.r * 2, this.r * 2);
         }
         pop();
-        //this.pushDioptres();
-    }
-  
-    this.rotatePt = function (Mx, My, Ox, Oy, angle) {
-        // https://www.stashofcode.fr/rotation-dun-point-autour-dun-centre/
-        var xM, yM, x, y;
-        // angle *= Math.PI / 180;
-        angle = -angle;
-        xM = Mx - Ox;
-        yM = My - Oy;
-        x = xM * Math.cos(angle) + yM * Math.sin(angle) + Ox;
-        y = - xM * Math.sin(angle) + yM * Math.cos(angle) + Oy;
-        return ({ x: Math.round(x), y: Math.round(y) });
     }
 }
