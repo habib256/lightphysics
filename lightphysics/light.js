@@ -370,7 +370,7 @@ class Light {
     }
   }
 
-  castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group) {
+  castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group, tirBounces = 0, inGlass = true) {
     // Find closest intersection
     let record = CONFIG.REFRACTED_RAY_MAX_LENGTH * CONFIG.REFRACTED_RAY_MAX_LENGTH;
     let bestX = originX + dirX * CONFIG.REFRACTED_RAY_MAX_LENGTH;
@@ -416,6 +416,12 @@ class Light {
           bestDioptreIdx = idx;
         }
       }
+    }
+
+    // Beer-Lambert absorption: attenuate based on distance traveled through glass
+    if (inGlass) {
+      const segDist = Math.sqrt(record);
+      intensity *= Math.exp(-CONFIG.GLASS_ABSORPTION_COEFF * segDist);
     }
 
     // Check if this beam will recurse (hit another glass surface)
@@ -466,7 +472,7 @@ class Light {
               refDirX / rLen, refDirY / rLen,
               bestX, bestY,
               refractiveIndex, depth + 1, exitIntensity,
-              group
+              group, 0, false
             );
           } else {
             // Can't compute exit direction: treat as terminal
@@ -476,11 +482,37 @@ class Light {
             group.count++;
           }
         } else {
-          // Total internal reflection at exit: treat as terminal
-          group.entryPoints.push({ x: drawFromX, y: drawFromY });
-          group.exitPoints.push({ x: bestX, y: bestY });
-          group.intensity += intensity;
-          group.count++;
+          // Total internal reflection: reflect ray and continue bouncing inside glass
+          if (tirBounces < CONFIG.MAX_TIR_BOUNCES && depth < CONFIG.MAX_REFRACTION_DEPTH) {
+            const dotDN = dirX * nx + dirY * ny;
+            const reflDirX = dirX - 2.0 * dotDN * nx;
+            const reflDirY = dirY - 2.0 * dotDN * ny;
+            const reflLen = Math.sqrt(reflDirX * reflDirX + reflDirY * reflDirY);
+            if (reflLen > 1e-10) {
+              const nReflX = reflDirX / reflLen;
+              const nReflY = reflDirY / reflLen;
+              const reflOriginX = bestX + nReflX * 0.5;
+              const reflOriginY = bestY + nReflY * 0.5;
+              this.castRefractedBeamForPolygon(
+                reflOriginX, reflOriginY,
+                nReflX, nReflY,
+                bestX, bestY,
+                refractiveIndex, depth + 1, intensity,
+                group, tirBounces + 1
+              );
+            } else {
+              group.entryPoints.push({ x: drawFromX, y: drawFromY });
+              group.exitPoints.push({ x: bestX, y: bestY });
+              group.intensity += intensity;
+              group.count++;
+            }
+          } else {
+            // Depth or TIR bounce limit exhausted: treat as terminal
+            group.entryPoints.push({ x: drawFromX, y: drawFromY });
+            group.exitPoints.push({ x: bestX, y: bestY });
+            group.intensity += intensity;
+            group.count++;
+          }
         }
       } else {
         // Degenerate dioptre: treat as terminal
@@ -537,12 +569,17 @@ class Light {
       exitCX /= group.exitPoints.length;
       exitCY /= group.exitPoints.length;
 
-      // Linear gradient from entry centroid to exit centroid
+      // Linear gradient from entry centroid, through exit centroid, extending beyond
+      const extF = CONFIG.GRADIENT_EXTEND_FACTOR;
+      const gradEndX = group.centroidX + (exitCX - group.centroidX) * extF;
+      const gradEndY = group.centroidY + (exitCY - group.centroidY) * extF;
+
       const gradient = ctx.createLinearGradient(
         group.centroidX, group.centroidY,
-        exitCX, exitCY
+        gradEndX, gradEndY
       );
-      gradient.addColorStop(0, `rgba(${group.r},${group.g},${group.b},${alphaVal})`);
+      gradient.addColorStop(0, `rgba(${group.r},${group.g},${group.b},${alphaVal * 0.3})`);
+      gradient.addColorStop(0.3, `rgba(${group.r},${group.g},${group.b},${alphaVal})`);
       gradient.addColorStop(1, `rgba(${group.r},${group.g},${group.b},0)`);
 
       ctx.fillStyle = gradient;
