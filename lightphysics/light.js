@@ -118,6 +118,87 @@ class Light {
     }
   }
 
+  addBoundaryRay(dioptreIdx, endpointX, endpointY, colorIdx, group) {
+    // Direction from light source to dioptre endpoint
+    const dirX = endpointX - this.pos.x;
+    const dirY = endpointY - this.pos.y;
+    const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+    if (dirLen < 1e-8) return;
+    const nDirX = dirX / dirLen;
+    const nDirY = dirY / dirLen;
+
+    // Compute surface normal of the dioptre
+    const d = dioptres[dioptreIdx];
+    const edgeDx = d.bx - d.ax;
+    const edgeDy = d.by - d.ay;
+    const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
+    if (edgeLen < 1e-8) return;
+
+    let nx = -edgeDy / edgeLen;
+    let ny = edgeDx / edgeLen;
+
+    // Ensure normal faces against the incoming direction
+    const dot = nDirX * nx + nDirY * ny;
+    if (dot > 0) { nx = -nx; ny = -ny; }
+
+    const cosI = -(nDirX * nx + nDirY * ny);
+    if (cosI <= 0) return;
+
+    // Snell's law: air to glass
+    const ratio = 1.0 / colorIdx.n;
+    const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
+    if (sinT2 > 1.0) return; // Total internal reflection
+
+    const cosT = Math.sqrt(1.0 - sinT2);
+
+    // Schlick's approximation for Fresnel transmission
+    const r0 = ((1.0 - colorIdx.n) / (1.0 + colorIdx.n)) ** 2;
+    const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
+    const beamIntensity = colorIdx.intensity * (1.0 - fresnel);
+
+    // Refracted direction
+    const refDirX = ratio * nDirX + (ratio * cosI - cosT) * nx;
+    const refDirY = ratio * nDirY + (ratio * cosI - cosT) * ny;
+    const rLen = Math.sqrt(refDirX * refDirX + refDirY * refDirY);
+    if (rLen < 1e-10) return;
+
+    const normRefDirX = refDirX / rLen;
+    const normRefDirY = refDirY / rLen;
+
+    // Offset origin slightly inside the glass to avoid self-intersection
+    const originX = endpointX + normRefDirX * 0.5;
+    const originY = endpointY + normRefDirY * 0.5;
+
+    this.castRefractedBeamForPolygon(
+      originX, originY, normRefDirX, normRefDirY,
+      endpointX, endpointY,
+      colorIdx.n, 0, beamIntensity,
+      group
+    );
+  }
+
+  closeGroupWithTrailingBoundary(group, dioptreIdx, lastHitX, lastHitY, colorIdx) {
+    if (group === null) return;
+
+    if (dioptreIdx >= 0) {
+      const d = dioptres[dioptreIdx];
+      // Use the endpoint opposite to the leading boundary
+      let epX, epY;
+      if (group.leadingIsA) {
+        epX = d.bx; epY = d.by;
+      } else {
+        epX = d.ax; epY = d.ay;
+      }
+
+      const gapSq = (lastHitX - epX) * (lastHitX - epX) + (lastHitY - epY) * (lastHitY - epY);
+      if (gapSq > CONFIG.BOUNDARY_RAY_MIN_GAP * CONFIG.BOUNDARY_RAY_MIN_GAP) {
+        this.addBoundaryRay(dioptreIdx, epX, epY, colorIdx, group);
+      }
+    }
+
+    this.closeGroup(group);
+  }
+
   computeRefractedRays() {
     this.refractedPolygons.length = 0;
 
@@ -133,15 +214,19 @@ class Light {
       { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA },
     ];
 
-    // Per-channel active polygon groups
+    // Per-channel active polygon groups and tracking
     const currentGroups = [null, null, null];
     const lastDioptre = [-1, -1, -1];
+    const lastHitX = [0, 0, 0];
+    const lastHitY = [0, 0, 0];
 
     for (const ray of this.rays) {
       if (ray.hitDioptreIndex < 0 || !dioptres[ray.hitDioptreIndex].isGlass) {
-        // No glass hit: close all active groups
+        // No glass hit: close all active groups with trailing boundary
         for (let c = 0; c < 3; c++) {
-          this.closeGroup(currentGroups[c]);
+          this.closeGroupWithTrailingBoundary(
+            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
+          );
           currentGroups[c] = null;
           lastDioptre[c] = -1;
         }
@@ -156,7 +241,9 @@ class Light {
       const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
       if (edgeLen < 1e-8) {
         for (let c = 0; c < 3; c++) {
-          this.closeGroup(currentGroups[c]);
+          this.closeGroupWithTrailingBoundary(
+            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
+          );
           currentGroups[c] = null;
           lastDioptre[c] = -1;
         }
@@ -179,9 +266,11 @@ class Light {
       for (let c = 0; c < 3; c++) {
         const idx = colorIndices[c];
 
-        // If dioptre changed, close previous group and start fresh
+        // If dioptre changed, close previous group with trailing boundary and start fresh
         if (ray.hitDioptreIndex !== lastDioptre[c] && currentGroups[c] !== null) {
-          this.closeGroup(currentGroups[c]);
+          this.closeGroupWithTrailingBoundary(
+            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
+          );
           currentGroups[c] = null;
         }
         lastDioptre[c] = ray.hitDioptreIndex;
@@ -191,7 +280,9 @@ class Light {
 
         // Total internal reflection: close the group for this channel
         if (sinT2 > 1.0) {
-          this.closeGroup(currentGroups[c]);
+          this.closeGroupWithTrailingBoundary(
+            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
+          );
           currentGroups[c] = null;
           lastDioptre[c] = -1;
           continue;
@@ -210,7 +301,9 @@ class Light {
 
         const rLen = Math.sqrt(refDirX * refDirX + refDirY * refDirY);
         if (rLen < 1e-10) {
-          this.closeGroup(currentGroups[c]);
+          this.closeGroupWithTrailingBoundary(
+            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
+          );
           currentGroups[c] = null;
           lastDioptre[c] = -1;
           continue;
@@ -222,7 +315,7 @@ class Light {
         const originX = ray.end.x + normRefDirX * 0.5;
         const originY = ray.end.y + normRefDirY * 0.5;
 
-        // Create group if needed
+        // Create group if needed, with leading boundary ray
         if (currentGroups[c] === null) {
           currentGroups[c] = {
             r: idx.r, g: idx.g, b: idx.b,
@@ -231,8 +324,28 @@ class Light {
             entryPoints: [],
             exitPoints: [],
             centroidX: 0, centroidY: 0,
-            maxDist: 0
+            maxDist: 0,
+            leadingIsA: true
           };
+
+          // Determine which endpoint is closest to the first hit point
+          const d = hitDioptre;
+          const distA = (ray.end.x - d.ax) * (ray.end.x - d.ax) + (ray.end.y - d.ay) * (ray.end.y - d.ay);
+          const distB = (ray.end.x - d.bx) * (ray.end.x - d.bx) + (ray.end.y - d.by) * (ray.end.y - d.by);
+
+          let leadEpX, leadEpY;
+          if (distA <= distB) {
+            leadEpX = d.ax; leadEpY = d.ay;
+            currentGroups[c].leadingIsA = true;
+          } else {
+            leadEpX = d.bx; leadEpY = d.by;
+            currentGroups[c].leadingIsA = false;
+          }
+
+          const gapSq = Math.min(distA, distB);
+          if (gapSq > CONFIG.BOUNDARY_RAY_MIN_GAP * CONFIG.BOUNDARY_RAY_MIN_GAP) {
+            this.addBoundaryRay(ray.hitDioptreIndex, leadEpX, leadEpY, idx, currentGroups[c]);
+          }
         }
 
         // Trace refracted beam and collect terminal points into the group
@@ -242,12 +355,18 @@ class Light {
           idx.n, 0, beamIntensity,
           currentGroups[c]
         );
+
+        // Track last hit point for trailing boundary
+        lastHitX[c] = ray.end.x;
+        lastHitY[c] = ray.end.y;
       }
     }
 
-    // Close any remaining open groups
+    // Close any remaining open groups with trailing boundary
     for (let c = 0; c < 3; c++) {
-      this.closeGroup(currentGroups[c]);
+      this.closeGroupWithTrailingBoundary(
+        currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
+      );
     }
   }
 
