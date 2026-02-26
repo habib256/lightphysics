@@ -273,6 +273,7 @@ class Light {
 
     const ctx = drawingContext;
     const alphaVal = CONFIG.REFRACTED_BEAM_ALPHA / 255;
+    const endAlphaVal = alphaVal * 0.3;
 
     for (const seg of this.refractedSegments) {
       const dx = seg.x2 - seg.x1;
@@ -280,20 +281,25 @@ class Light {
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len < 1) continue;
 
-      // Perpendicular for beam width
-      const perpX = -dy / len * 3;
-      const perpY = dx / len * 3;
+      // Perpendicular for beam width at endpoint
+      const perpX = -dy / len * 10;
+      const perpY = dx / len * 10;
 
-      // Draw as a thin triangle (cone shape) with gradient
+      // Narrower width at start point
+      const startPerpX = perpX * 0.3;
+      const startPerpY = perpY * 0.3;
+
+      // Draw as a ribbon (quad) with gradient that retains opacity at the end
       const gradient = ctx.createLinearGradient(seg.x1, seg.y1, seg.x2, seg.y2);
       gradient.addColorStop(0, `rgba(${seg.r},${seg.g},${seg.b},${alphaVal})`);
-      gradient.addColorStop(1, `rgba(${seg.r},${seg.g},${seg.b},0)`);
+      gradient.addColorStop(1, `rgba(${seg.r},${seg.g},${seg.b},${endAlphaVal})`);
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.moveTo(seg.x1, seg.y1);
+      ctx.moveTo(seg.x1 + startPerpX, seg.y1 + startPerpY);
       ctx.lineTo(seg.x2 + perpX, seg.y2 + perpY);
       ctx.lineTo(seg.x2 - perpX, seg.y2 - perpY);
+      ctx.lineTo(seg.x1 - startPerpX, seg.y1 - startPerpY);
       ctx.closePath();
       ctx.fill();
     }
