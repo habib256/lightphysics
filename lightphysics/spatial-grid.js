@@ -35,10 +35,10 @@ class SpatialGrid {
 
   insertDioptre(dioptre, index) {
     const cs = this.cellSize;
-    const minX = Math.max(0, Math.floor(Math.min(dioptre.ax, dioptre.bx) / cs));
-    const maxX = Math.min(this.cols - 1, Math.floor(Math.max(dioptre.ax, dioptre.bx) / cs));
-    const minY = Math.max(0, Math.floor(Math.min(dioptre.ay, dioptre.by) / cs));
-    const maxY = Math.min(this.rows - 1, Math.floor(Math.max(dioptre.ay, dioptre.by) / cs));
+    const minX = Math.max(0, Math.min(this.cols - 1, Math.floor(Math.min(dioptre.ax, dioptre.bx) / cs)));
+    const maxX = Math.max(0, Math.min(this.cols - 1, Math.floor(Math.max(dioptre.ax, dioptre.bx) / cs)));
+    const minY = Math.max(0, Math.min(this.rows - 1, Math.floor(Math.min(dioptre.ay, dioptre.by) / cs)));
+    const maxY = Math.max(0, Math.min(this.rows - 1, Math.floor(Math.max(dioptre.ay, dioptre.by) / cs)));
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
