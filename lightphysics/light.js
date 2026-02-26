@@ -114,10 +114,16 @@ class Light {
   computeRefractedRays() {
     this.refractedSegments.length = 0;
 
+    // Derive refracted beam colors from source light (energy conservation)
+    const srcR = red(this.color);
+    const srcG = green(this.color);
+    const srcB = blue(this.color);
+    const srcA = alpha(this.color) / 255;
+
     const colorIndices = [
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_R, r: 255, g: 0, b: 0 },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_G, r: 0, g: 255, b: 0 },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: 255 },
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_R, r: srcR, g: 0, b: 0, intensity: srcA },
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_G, r: 0, g: srcG, b: 0, intensity: srcA },
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA },
     ];
 
     for (const ray of this.rays) {
@@ -153,6 +159,11 @@ class Light {
 
         const cosT = Math.sqrt(1.0 - sinT2);
 
+        // Schlick's approximation for Fresnel transmission
+        const r0 = ((1.0 - idx.n) / (1.0 + idx.n)) ** 2;
+        const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
+        const beamIntensity = idx.intensity * (1.0 - fresnel);
+
         // Snell's law refracted direction
         const refDirX = ratio * ray.dir.x + (ratio * cosI - cosT) * nx;
         const refDirY = ratio * ray.dir.y + (ratio * cosI - cosT) * ny;
@@ -169,13 +180,13 @@ class Light {
         this.castRefractedBeam(
           originX, originY, normRefDirX, normRefDirY,
           ray.end.x, ray.end.y,
-          idx.r, idx.g, idx.b, idx.n, 0
+          idx.r, idx.g, idx.b, idx.n, 0, beamIntensity
         );
       }
     }
   }
 
-  castRefractedBeam(originX, originY, dirX, dirY, drawFromX, drawFromY, cr, cg, cb, refractiveIndex, depth) {
+  castRefractedBeam(originX, originY, dirX, dirY, drawFromX, drawFromY, cr, cg, cb, refractiveIndex, depth, intensity) {
     // Find closest intersection
     let record = CONFIG.REFRACTED_RAY_MAX_LENGTH * CONFIG.REFRACTED_RAY_MAX_LENGTH;
     let bestX = originX + dirX * CONFIG.REFRACTED_RAY_MAX_LENGTH;
@@ -227,7 +238,8 @@ class Light {
     this.refractedSegments.push({
       x1: drawFromX, y1: drawFromY,
       x2: bestX, y2: bestY,
-      r: cr, g: cg, b: cb
+      r: cr, g: cg, b: cb,
+      intensity: intensity
     });
 
     // If hit another glass surface and depth allows, refract again
@@ -250,6 +262,12 @@ class Light {
 
         if (sinT2 <= 1.0) {
           const cosT = Math.sqrt(1.0 - sinT2);
+
+          // Schlick's approximation for Fresnel transmission at exit
+          const r0Exit = ((refractiveIndex - 1.0) / (refractiveIndex + 1.0)) ** 2;
+          const fresnelExit = r0Exit + (1.0 - r0Exit) * ((1.0 - cosI) ** 5);
+          const exitIntensity = intensity * (1.0 - fresnelExit);
+
           const refDirX = ratio * dirX + (ratio * cosI - cosT) * nx;
           const refDirY = ratio * dirY + (ratio * cosI - cosT) * ny;
           const rLen = Math.sqrt(refDirX * refDirX + refDirY * refDirY);
@@ -260,7 +278,7 @@ class Light {
               exitOriginX, exitOriginY,
               refDirX / rLen, refDirY / rLen,
               bestX, bestY,
-              cr, cg, cb, refractiveIndex, depth + 1
+              cr, cg, cb, refractiveIndex, depth + 1, exitIntensity
             );
           }
         }
@@ -272,14 +290,16 @@ class Light {
     if (this.refractedSegments.length === 0) return;
 
     const ctx = drawingContext;
-    const alphaVal = CONFIG.REFRACTED_BEAM_ALPHA / 255;
-    const endAlphaVal = alphaVal * 0.3;
 
     for (const seg of this.refractedSegments) {
       const dx = seg.x2 - seg.x1;
       const dy = seg.y2 - seg.y1;
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len < 1) continue;
+
+      // Per-segment intensity with configurable boost, clamped to [0,1]
+      const alphaVal = Math.min(seg.intensity * CONFIG.REFRACTED_BEAM_INTENSITY_BOOST, 1.0);
+      const endAlphaVal = alphaVal * 0.3;
 
       // Perpendicular for beam width at endpoint
       const perpX = -dy / len * 10;
