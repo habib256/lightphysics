@@ -14,7 +14,7 @@ class Light {
     this.dioptres = dioptres;
     this.showRays = false;
     this.grid = null;
-    this.refractedSegments = [];
+    this.refractedPolygons = [];
     this.initRays();
   }
 
@@ -74,8 +74,8 @@ class Light {
     }
     endShape(CLOSE);
 
-    // Draw refracted colored rays
-    this.drawRefractedRays();
+    // Draw refracted light polygons
+    this.drawRefractedPolygons();
 
     if (this.showRays) {
       this.renderBestRays();
@@ -111,8 +111,15 @@ class Light {
     }
   }
 
+  closeGroup(group) {
+    if (group && group.count >= 2) {
+      this.finalizePolygonGroup(group);
+      this.refractedPolygons.push(group);
+    }
+  }
+
   computeRefractedRays() {
-    this.refractedSegments.length = 0;
+    this.refractedPolygons.length = 0;
 
     // Derive refracted beam colors from source light (energy conservation)
     const srcR = red(this.color);
@@ -126,16 +133,35 @@ class Light {
       { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA },
     ];
 
+    // Per-channel active polygon groups
+    const currentGroups = [null, null, null];
+    const lastDioptre = [-1, -1, -1];
+
     for (const ray of this.rays) {
-      if (ray.hitDioptreIndex < 0) continue;
+      if (ray.hitDioptreIndex < 0 || !dioptres[ray.hitDioptreIndex].isGlass) {
+        // No glass hit: close all active groups
+        for (let c = 0; c < 3; c++) {
+          this.closeGroup(currentGroups[c]);
+          currentGroups[c] = null;
+          lastDioptre[c] = -1;
+        }
+        continue;
+      }
+
       const hitDioptre = dioptres[ray.hitDioptreIndex];
-      if (!hitDioptre.isGlass) continue;
 
       // Compute surface normal of the hit dioptre
       const edgeDx = hitDioptre.bx - hitDioptre.ax;
       const edgeDy = hitDioptre.by - hitDioptre.ay;
       const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
-      if (edgeLen < 1e-8) continue;
+      if (edgeLen < 1e-8) {
+        for (let c = 0; c < 3; c++) {
+          this.closeGroup(currentGroups[c]);
+          currentGroups[c] = null;
+          lastDioptre[c] = -1;
+        }
+        continue;
+      }
 
       // Normal perpendicular to edge
       let nx = -edgeDy / edgeLen;
@@ -150,12 +176,26 @@ class Light {
 
       const cosI = -(ray.dir.x * nx + ray.dir.y * ny);
 
-      for (const idx of colorIndices) {
+      for (let c = 0; c < 3; c++) {
+        const idx = colorIndices[c];
+
+        // If dioptre changed, close previous group and start fresh
+        if (ray.hitDioptreIndex !== lastDioptre[c] && currentGroups[c] !== null) {
+          this.closeGroup(currentGroups[c]);
+          currentGroups[c] = null;
+        }
+        lastDioptre[c] = ray.hitDioptreIndex;
+
         const ratio = 1.0 / idx.n; // air to glass
         const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
 
-        // Total internal reflection check
-        if (sinT2 > 1.0) continue;
+        // Total internal reflection: close the group for this channel
+        if (sinT2 > 1.0) {
+          this.closeGroup(currentGroups[c]);
+          currentGroups[c] = null;
+          lastDioptre[c] = -1;
+          continue;
+        }
 
         const cosT = Math.sqrt(1.0 - sinT2);
 
@@ -169,7 +209,12 @@ class Light {
         const refDirY = ratio * ray.dir.y + (ratio * cosI - cosT) * ny;
 
         const rLen = Math.sqrt(refDirX * refDirX + refDirY * refDirY);
-        if (rLen < 1e-10) continue;
+        if (rLen < 1e-10) {
+          this.closeGroup(currentGroups[c]);
+          currentGroups[c] = null;
+          lastDioptre[c] = -1;
+          continue;
+        }
         const normRefDirX = refDirX / rLen;
         const normRefDirY = refDirY / rLen;
 
@@ -177,16 +222,36 @@ class Light {
         const originX = ray.end.x + normRefDirX * 0.5;
         const originY = ray.end.y + normRefDirY * 0.5;
 
-        this.castRefractedBeam(
+        // Create group if needed
+        if (currentGroups[c] === null) {
+          currentGroups[c] = {
+            r: idx.r, g: idx.g, b: idx.b,
+            intensity: 0,
+            count: 0,
+            entryPoints: [],
+            exitPoints: [],
+            centroidX: 0, centroidY: 0,
+            maxDist: 0
+          };
+        }
+
+        // Trace refracted beam and collect terminal points into the group
+        this.castRefractedBeamForPolygon(
           originX, originY, normRefDirX, normRefDirY,
           ray.end.x, ray.end.y,
-          idx.r, idx.g, idx.b, idx.n, 0, beamIntensity
+          idx.n, 0, beamIntensity,
+          currentGroups[c]
         );
       }
     }
+
+    // Close any remaining open groups
+    for (let c = 0; c < 3; c++) {
+      this.closeGroup(currentGroups[c]);
+    }
   }
 
-  castRefractedBeam(originX, originY, dirX, dirY, drawFromX, drawFromY, cr, cg, cb, refractiveIndex, depth, intensity) {
+  castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group) {
     // Find closest intersection
     let record = CONFIG.REFRACTED_RAY_MAX_LENGTH * CONFIG.REFRACTED_RAY_MAX_LENGTH;
     let bestX = originX + dirX * CONFIG.REFRACTED_RAY_MAX_LENGTH;
@@ -234,17 +299,20 @@ class Light {
       }
     }
 
-    // Store this segment for rendering
-    this.refractedSegments.push({
-      x1: drawFromX, y1: drawFromY,
-      x2: bestX, y2: bestY,
-      r: cr, g: cg, b: cb,
-      intensity: intensity
-    });
+    // Check if this beam will recurse (hit another glass surface)
+    const willRecurse = (bestDioptreIdx >= 0 && depth < CONFIG.MAX_REFRACTION_DEPTH
+        && dioptres[bestDioptreIdx].isGlass);
+
+    if (!willRecurse) {
+      // Terminal segment: add entry/exit points to polygon group
+      group.entryPoints.push({ x: drawFromX, y: drawFromY });
+      group.exitPoints.push({ x: bestX, y: bestY });
+      group.intensity += intensity;
+      group.count++;
+    }
 
     // If hit another glass surface and depth allows, refract again
-    if (bestDioptreIdx >= 0 && depth < CONFIG.MAX_REFRACTION_DEPTH
-        && dioptres[bestDioptreIdx].isGlass) {
+    if (willRecurse) {
       const hitDioptre = dioptres[bestDioptreIdx];
       const edgeDx = hitDioptre.bx - hitDioptre.ax;
       const edgeDy = hitDioptre.by - hitDioptre.ay;
@@ -274,52 +342,107 @@ class Light {
           if (rLen > 1e-10) {
             const exitOriginX = bestX + (refDirX / rLen) * 0.5;
             const exitOriginY = bestY + (refDirY / rLen) * 0.5;
-            this.castRefractedBeam(
+            this.castRefractedBeamForPolygon(
               exitOriginX, exitOriginY,
               refDirX / rLen, refDirY / rLen,
               bestX, bestY,
-              cr, cg, cb, refractiveIndex, depth + 1, exitIntensity
+              refractiveIndex, depth + 1, exitIntensity,
+              group
             );
+          } else {
+            // Can't compute exit direction: treat as terminal
+            group.entryPoints.push({ x: drawFromX, y: drawFromY });
+            group.exitPoints.push({ x: bestX, y: bestY });
+            group.intensity += intensity;
+            group.count++;
           }
+        } else {
+          // Total internal reflection at exit: treat as terminal
+          group.entryPoints.push({ x: drawFromX, y: drawFromY });
+          group.exitPoints.push({ x: bestX, y: bestY });
+          group.intensity += intensity;
+          group.count++;
         }
+      } else {
+        // Degenerate dioptre: treat as terminal
+        group.entryPoints.push({ x: drawFromX, y: drawFromY });
+        group.exitPoints.push({ x: bestX, y: bestY });
+        group.intensity += intensity;
+        group.count++;
       }
     }
   }
 
-  drawRefractedRays() {
-    if (this.refractedSegments.length === 0) return;
+  finalizePolygonGroup(group) {
+    if (group.count === 0) return;
+
+    // Average intensity
+    group.intensity = group.intensity / group.count;
+
+    // Compute centroid of entry points
+    let cx = 0, cy = 0;
+    for (const p of group.entryPoints) {
+      cx += p.x;
+      cy += p.y;
+    }
+    group.centroidX = cx / group.entryPoints.length;
+    group.centroidY = cy / group.entryPoints.length;
+
+    // Compute max distance from centroid to any exit point
+    let maxDSq = 0;
+    for (const p of group.exitPoints) {
+      const dx = p.x - group.centroidX;
+      const dy = p.y - group.centroidY;
+      const dSq = dx * dx + dy * dy;
+      if (dSq > maxDSq) maxDSq = dSq;
+    }
+    group.maxDist = Math.sqrt(maxDSq);
+  }
+
+  drawRefractedPolygons() {
+    if (this.refractedPolygons.length === 0) return;
 
     const ctx = drawingContext;
 
-    for (const seg of this.refractedSegments) {
-      const dx = seg.x2 - seg.x1;
-      const dy = seg.y2 - seg.y1;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len < 1) continue;
+    for (const group of this.refractedPolygons) {
+      if (group.count < 2 || group.maxDist < 1) continue;
 
-      // Per-segment intensity with configurable boost, clamped to [0,1]
-      const alphaVal = Math.min(seg.intensity * CONFIG.REFRACTED_BEAM_INTENSITY_BOOST, 1.0);
-      const endAlphaVal = alphaVal * 0.3;
+      const alphaVal = Math.min(group.intensity * CONFIG.REFRACTED_BEAM_INTENSITY_BOOST, 1.0);
 
-      // Perpendicular for beam width at endpoint
-      const perpX = -dy / len * 10;
-      const perpY = dx / len * 10;
+      // Compute centroid of exit points for linear gradient direction
+      let exitCX = 0, exitCY = 0;
+      for (const p of group.exitPoints) {
+        exitCX += p.x;
+        exitCY += p.y;
+      }
+      exitCX /= group.exitPoints.length;
+      exitCY /= group.exitPoints.length;
 
-      // Narrower width at start point
-      const startPerpX = perpX * 0.3;
-      const startPerpY = perpY * 0.3;
-
-      // Draw as a ribbon (quad) with gradient that retains opacity at the end
-      const gradient = ctx.createLinearGradient(seg.x1, seg.y1, seg.x2, seg.y2);
-      gradient.addColorStop(0, `rgba(${seg.r},${seg.g},${seg.b},${alphaVal})`);
-      gradient.addColorStop(1, `rgba(${seg.r},${seg.g},${seg.b},${endAlphaVal})`);
+      // Linear gradient from entry centroid to exit centroid
+      const gradient = ctx.createLinearGradient(
+        group.centroidX, group.centroidY,
+        exitCX, exitCY
+      );
+      gradient.addColorStop(0, `rgba(${group.r},${group.g},${group.b},${alphaVal})`);
+      gradient.addColorStop(1, `rgba(${group.r},${group.g},${group.b},0)`);
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.moveTo(seg.x1 + startPerpX, seg.y1 + startPerpY);
-      ctx.lineTo(seg.x2 + perpX, seg.y2 + perpY);
-      ctx.lineTo(seg.x2 - perpX, seg.y2 - perpY);
-      ctx.lineTo(seg.x1 - startPerpX, seg.y1 - startPerpY);
+
+      // Traverse entry points forward (along the glass surface)
+      const ep = group.entryPoints;
+      const xp = group.exitPoints;
+
+      ctx.moveTo(ep[0].x, ep[0].y);
+      for (let i = 1; i < ep.length; i++) {
+        ctx.lineTo(ep[i].x, ep[i].y);
+      }
+
+      // Traverse exit points in reverse (far boundary)
+      for (let i = xp.length - 1; i >= 0; i--) {
+        ctx.lineTo(xp[i].x, xp[i].y);
+      }
+
       ctx.closePath();
       ctx.fill();
     }
