@@ -13,6 +13,8 @@ class Ray {
     this.color = color;
     this.end = { x: pos.x, y: pos.y };
     this.hitDioptreIndex = -1;
+    this.glassEnd = { x: pos.x, y: pos.y };
+    this.hitGlassDioptreIndex = -1;
   }
 
   lookAt(x, y) {
@@ -48,6 +50,7 @@ class Ray {
 
   calculateIntersection(dioptres, dioptreCount) {
     let record = Infinity;
+    let glassRecord = Infinity;
     const posX = this.pos.x;
     const posY = this.pos.y;
     const dirX = this.dir.x;
@@ -61,6 +64,9 @@ class Ray {
     this.end.x = posX;
     this.end.y = posY;
     this.hitDioptreIndex = -1;
+    this.glassEnd.x = posX;
+    this.glassEnd.y = posY;
+    this.hitGlassDioptreIndex = -1;
 
     for (let i = 0; i < count; i++) {
       const surface = dioptres[i];
@@ -82,18 +88,33 @@ class Ray {
         const dx = ptX - posX;
         const dy = ptY - posY;
         const dSq = dx * dx + dy * dy;
-        if (dSq < record) {
-          record = dSq;
-          this.end.x = ptX;
-          this.end.y = ptY;
-          this.hitDioptreIndex = i;
+        if (surface.isGlass) {
+          if (dSq < glassRecord) {
+            glassRecord = dSq;
+            this.glassEnd.x = ptX;
+            this.glassEnd.y = ptY;
+            this.hitGlassDioptreIndex = i;
+          }
+        } else {
+          if (dSq < record) {
+            record = dSq;
+            this.end.x = ptX;
+            this.end.y = ptY;
+            this.hitDioptreIndex = i;
+          }
         }
       }
+    }
+
+    // Discard glass hit if it is behind the closest opaque hit
+    if (glassRecord >= record) {
+      this.hitGlassDioptreIndex = -1;
     }
   }
 
   calculateIntersectionWithGrid(dioptres, grid) {
     let record = Infinity;
+    let glassRecord = Infinity;
     const posX = this.pos.x;
     const posY = this.pos.y;
     const dirX = this.dir.x;
@@ -106,6 +127,9 @@ class Ray {
     this.end.x = posX;
     this.end.y = posY;
     this.hitDioptreIndex = -1;
+    this.glassEnd.x = posX;
+    this.glassEnd.y = posY;
+    this.hitGlassDioptreIndex = -1;
 
     const indices = grid.getDioptresForRay(posX, posY, dirX, dirY);
 
@@ -129,13 +153,27 @@ class Ray {
         const dx = ptX - posX;
         const dy = ptY - posY;
         const dSq = dx * dx + dy * dy;
-        if (dSq < record) {
-          record = dSq;
-          this.end.x = ptX;
-          this.end.y = ptY;
-          this.hitDioptreIndex = indices[i];
+        if (surface.isGlass) {
+          if (dSq < glassRecord) {
+            glassRecord = dSq;
+            this.glassEnd.x = ptX;
+            this.glassEnd.y = ptY;
+            this.hitGlassDioptreIndex = indices[i];
+          }
+        } else {
+          if (dSq < record) {
+            record = dSq;
+            this.end.x = ptX;
+            this.end.y = ptY;
+            this.hitDioptreIndex = indices[i];
+          }
         }
       }
+    }
+
+    // Discard glass hit if it is behind the closest opaque hit
+    if (glassRecord >= record) {
+      this.hitGlassDioptreIndex = -1;
     }
   }
 }

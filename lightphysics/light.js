@@ -221,7 +221,7 @@ class Light {
     const lastHitY = [0, 0, 0];
 
     for (const ray of this.rays) {
-      if (ray.hitDioptreIndex < 0 || !dioptres[ray.hitDioptreIndex].isGlass) {
+      if (ray.hitGlassDioptreIndex < 0) {
         // No glass hit: close all active groups with trailing boundary
         for (let c = 0; c < 3; c++) {
           this.closeGroupWithTrailingBoundary(
@@ -233,7 +233,7 @@ class Light {
         continue;
       }
 
-      const hitDioptre = dioptres[ray.hitDioptreIndex];
+      const hitDioptre = dioptres[ray.hitGlassDioptreIndex];
 
       // Compute surface normal of the hit dioptre
       const edgeDx = hitDioptre.bx - hitDioptre.ax;
@@ -267,13 +267,13 @@ class Light {
         const idx = colorIndices[c];
 
         // If dioptre changed, close previous group with trailing boundary and start fresh
-        if (ray.hitDioptreIndex !== lastDioptre[c] && currentGroups[c] !== null) {
+        if (ray.hitGlassDioptreIndex !== lastDioptre[c] && currentGroups[c] !== null) {
           this.closeGroupWithTrailingBoundary(
             currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
           );
           currentGroups[c] = null;
         }
-        lastDioptre[c] = ray.hitDioptreIndex;
+        lastDioptre[c] = ray.hitGlassDioptreIndex;
 
         const ratio = 1.0 / idx.n; // air to glass
         const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
@@ -312,8 +312,8 @@ class Light {
         const normRefDirY = refDirY / rLen;
 
         // Offset origin slightly to avoid self-intersection
-        const originX = ray.end.x + normRefDirX * 0.5;
-        const originY = ray.end.y + normRefDirY * 0.5;
+        const originX = ray.glassEnd.x + normRefDirX * 0.5;
+        const originY = ray.glassEnd.y + normRefDirY * 0.5;
 
         // Create group if needed, with leading boundary ray
         if (currentGroups[c] === null) {
@@ -330,8 +330,8 @@ class Light {
 
           // Determine which endpoint is closest to the first hit point
           const d = hitDioptre;
-          const distA = (ray.end.x - d.ax) * (ray.end.x - d.ax) + (ray.end.y - d.ay) * (ray.end.y - d.ay);
-          const distB = (ray.end.x - d.bx) * (ray.end.x - d.bx) + (ray.end.y - d.by) * (ray.end.y - d.by);
+          const distA = (ray.glassEnd.x - d.ax) * (ray.glassEnd.x - d.ax) + (ray.glassEnd.y - d.ay) * (ray.glassEnd.y - d.ay);
+          const distB = (ray.glassEnd.x - d.bx) * (ray.glassEnd.x - d.bx) + (ray.glassEnd.y - d.by) * (ray.glassEnd.y - d.by);
 
           let leadEpX, leadEpY;
           if (distA <= distB) {
@@ -344,21 +344,21 @@ class Light {
 
           const gapSq = Math.min(distA, distB);
           if (gapSq > CONFIG.BOUNDARY_RAY_MIN_GAP * CONFIG.BOUNDARY_RAY_MIN_GAP) {
-            this.addBoundaryRay(ray.hitDioptreIndex, leadEpX, leadEpY, idx, currentGroups[c]);
+            this.addBoundaryRay(ray.hitGlassDioptreIndex, leadEpX, leadEpY, idx, currentGroups[c]);
           }
         }
 
         // Trace refracted beam and collect terminal points into the group
         this.castRefractedBeamForPolygon(
           originX, originY, normRefDirX, normRefDirY,
-          ray.end.x, ray.end.y,
+          ray.glassEnd.x, ray.glassEnd.y,
           idx.n, 0, beamIntensity,
           currentGroups[c]
         );
 
         // Track last hit point for trailing boundary
-        lastHitX[c] = ray.end.x;
-        lastHitY[c] = ray.end.y;
+        lastHitX[c] = ray.glassEnd.x;
+        lastHitY[c] = ray.glassEnd.y;
       }
     }
 
@@ -403,7 +403,7 @@ class Light {
       const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
       const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
 
-      if (t > 0 && t < 1 && u > 0.001) {
+      if (t > 0 && t < 1 && u > 0) {
         const ptX = x1 + t * (x2 - x1);
         const ptY = y1 + t * (y2 - y1);
         const dx = ptX - originX;
@@ -449,8 +449,8 @@ class Light {
         if (dot > 0) { nx = -nx; ny = -ny; }
         const cosI = -(dirX * nx + dirY * ny);
 
-        // Exiting glass: ratio = n_glass / n_air
-        const ratio = refractiveIndex;
+        // Snell's law ratio depends on current medium
+        const ratio = inGlass ? refractiveIndex : (1.0 / refractiveIndex);
         const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
 
         if (sinT2 <= 1.0) {
@@ -472,7 +472,7 @@ class Light {
               refDirX / rLen, refDirY / rLen,
               bestX, bestY,
               refractiveIndex, depth + 1, exitIntensity,
-              group, 0, false
+              group, 0, !inGlass
             );
           } else {
             // Can't compute exit direction: treat as terminal
