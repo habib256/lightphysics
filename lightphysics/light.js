@@ -38,7 +38,33 @@ class Light {
   show() {
     this.lookRayCollision();
 
-    fill(this.color);
+    // Compute max ray distance for gradient radius
+    let maxDistSq = 0;
+    for (const ray of this.rays) {
+      const dx = ray.end.x - this.pos.x;
+      const dy = ray.end.y - this.pos.y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq > maxDistSq) maxDistSq = dSq;
+    }
+    const maxDist = Math.sqrt(maxDistSq);
+
+    // Extract RGBA components
+    const r = red(this.color);
+    const g = green(this.color);
+    const b = blue(this.color);
+    const a = alpha(this.color) / 255;
+
+    // Create radial gradient via native Canvas 2D API
+    const ctx = drawingContext;
+    const gradient = ctx.createRadialGradient(
+      this.pos.x, this.pos.y, 0,
+      this.pos.x, this.pos.y, maxDist
+    );
+    gradient.addColorStop(0, `rgba(${r},${g},${b},${a})`);
+    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+
+    // Draw light polygon with gradient fill
+    ctx.fillStyle = gradient;
     noStroke();
     beginShape();
     for (const ray of this.rays) {
