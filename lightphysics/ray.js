@@ -12,6 +12,7 @@ class Ray {
     this.dir = p5.Vector.fromAngle(angle);
     this.color = color;
     this.end = { x: pos.x, y: pos.y };
+    this.hitDioptreIndex = -1;
   }
 
   lookAt(x, y) {
@@ -59,6 +60,7 @@ class Ray {
 
     this.end.x = posX;
     this.end.y = posY;
+    this.hitDioptreIndex = -1;
 
     for (let i = 0; i < count; i++) {
       const surface = dioptres[i];
@@ -84,6 +86,7 @@ class Ray {
           record = dSq;
           this.end.x = ptX;
           this.end.y = ptY;
+          this.hitDioptreIndex = i;
         }
       }
     }
@@ -102,6 +105,7 @@ class Ray {
 
     this.end.x = posX;
     this.end.y = posY;
+    this.hitDioptreIndex = -1;
 
     const indices = grid.getDioptresForRay(posX, posY, dirX, dirY);
 
@@ -129,6 +133,7 @@ class Ray {
           record = dSq;
           this.end.x = ptX;
           this.end.y = ptY;
+          this.hitDioptreIndex = indices[i];
         }
       }
     }

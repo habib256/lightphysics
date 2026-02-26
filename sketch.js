@@ -20,6 +20,7 @@ let boxes = [];
 let boxesImg = [];
 let balls = [];
 let ballsImg = [];
+let glassBoxes = [];
 let lights = [];
 let dioptres = [];
 let backgrounds = [];
@@ -80,6 +81,7 @@ function draw() {
   background(0);
   drawBoxes();
   drawBalls();
+  drawGlassBoxes();
 
   drawLights();
 
@@ -101,6 +103,9 @@ function updateDioptres() {
   }
   for (let i = balls.length - 1; i >= 0; i--) {
     balls[i].pushDioptres();
+  }
+  for (let i = 0; i < glassBoxes.length; i++) {
+    glassBoxes[i].pushDioptres();
   }
   spatialGrid.updateMaxDioptres(dioptreCount);
   spatialGrid.build(dioptres, dioptreCount);
@@ -133,12 +138,23 @@ function generateBall(x, y, r, options, ballsImg) {
   balls.push(new Ball(x, y, r, options, ballsImg));
 }
 
+function generateGlassBox(x, y, w, h) {
+  const options = {
+    timeScale: 1
+  };
+  glassBoxes.push(new GlassBox(x, y, w, h, options));
+}
+
 function manageObjects() {
   manageOffScreenObjects(boxes);
   manageOffScreenObjects(balls);
+  manageOffScreenObjects(glassBoxes);
 
   if (frameCount % CONFIG.SPAWN_INTERVAL === 0) {
-    if (Math.random() < CONFIG.SPAWN_PROBABILITY) {
+    const rand = Math.random();
+    if (rand < CONFIG.GLASS_SPAWN_PROBABILITY) {
+      generateGlassBox(random(200, width - 150), 0, random(40, 120), random(40, 120));
+    } else if (rand < CONFIG.GLASS_SPAWN_PROBABILITY + (1 - CONFIG.GLASS_SPAWN_PROBABILITY) * CONFIG.SPAWN_PROBABILITY) {
       generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
     } else {
       generateBall(random(200, width - 150), 0, random(10, 50), { timeScale: 1 }, ballsImg);
