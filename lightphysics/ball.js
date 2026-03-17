@@ -49,7 +49,7 @@ class Ball extends PhysicsObject {
         } else {
             rectMode(CENTER);
             fill(127);
-            circle(0, 0, this.r * 2, this.r * 2);
+            circle(0, 0, this.r * 2);
         }
         pop();
     }

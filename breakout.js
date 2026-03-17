@@ -99,10 +99,16 @@ function setupBricks(options) {
 }
 
 function setupBorders(options) {
-  boxes.push(new Box(width / 2, -20, width, 60, options, boxesImg));
-  boxes.push(new Box(-20, height / 2, 60, height - 20, options, boxesImg));
-  boxes.push(new Box(width / 2, height + 20, width, 60, options, boxesImg));
-  boxes.push(new Box(width + 20, height / 2, 60, height - 20, options, boxesImg));
+  const borders = [
+    new Box(width / 2, -20, width, 60, options, boxesImg),
+    new Box(-20, height / 2, 60, height - 20, options, boxesImg),
+    new Box(width / 2, height + 20, width, 60, options, boxesImg),
+    new Box(width + 20, height / 2, 60, height - 20, options, boxesImg),
+  ];
+  for (const border of borders) {
+    border.isBorder = true;
+    boxes.push(border);
+  }
 }
 
 function setupBall() {
@@ -139,14 +145,19 @@ function setupCollisionEvents() {
   Matter.Events.on(engine, 'collisionEnd', ({ pairs }) => {
     pairs.forEach(({ bodyA, bodyB }) => {
       if (balls.length === 0) return;
-      let id;
-      if (bodyA.id === balls[0].body.id) {
-        id = bodyB.id;
+      const ballId = balls[0].body.id;
+      // Only process collisions that actually involve the ball
+      let brickId;
+      if (bodyA.id === ballId) {
+        brickId = bodyB.id;
+      } else if (bodyB.id === ballId) {
+        brickId = bodyA.id;
       } else {
-        id = bodyA.id;
+        return; // Ball not involved in this collision
       }
-      for (let i = 0; i < boxes.length - 4; i++) {
-        if (id === boxes[i].body.id) {
+      for (let i = 0; i < boxes.length; i++) {
+        if (boxes[i].body.isStatic && boxes[i].isBorder) continue;
+        if (brickId === boxes[i].body.id) {
           if (random(0, 1) > CONFIG.LIGHT_SPAWN_PROBABILITY) {
             const newcolor = color(random(255), random(255), random(255));
             newcolor.setAlpha(50);
@@ -154,7 +165,7 @@ function setupCollisionEvents() {
           }
           boxes[i].removeFromWorld();
           boxes.splice(i, 1);
-          i--;
+          break;
         }
       }
     });
@@ -176,7 +187,17 @@ function draw() {
   let vy = balls[0].getVY();
   const v = sqrt(vx * vx + vy * vy);
   if (v > CONFIG.BALL_SPEED_MAX) { vx = vx * CONFIG.VELOCITY_DAMPING; vy = vy * CONFIG.VELOCITY_DAMPING; }
-  if (v < CONFIG.BALL_SPEED_MIN) { vx = vx * CONFIG.VELOCITY_BOOST; vy = vy * CONFIG.VELOCITY_BOOST; }
+  if (v < CONFIG.BALL_SPEED_MIN) {
+    if (v < 1e-6) {
+      // Ball is completely stuck: give it a random velocity to unstick
+      const angle = random(TWO_PI);
+      vx = cos(angle) * CONFIG.BREAKOUT_BALL_VELOCITY;
+      vy = sin(angle) * CONFIG.BREAKOUT_BALL_VELOCITY;
+    } else {
+      vx = vx * CONFIG.VELOCITY_BOOST;
+      vy = vy * CONFIG.VELOCITY_BOOST;
+    }
+  }
   MyBody.setVelocity(balls[0].body, { x: vx, y: vy });
 
   if (boxes.length <= 4) {
