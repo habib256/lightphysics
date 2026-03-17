@@ -54,7 +54,6 @@ class SpatialGrid {
 
     // Collect unique dioptre indices along the ray path using DDA
     const seen = this._seen || (this._seen = new Uint8Array(1024));
-    const seenLen = this._seenLen || 0;
 
     // Grow seen array if needed
     if (seen.length < this._maxDioptres) {

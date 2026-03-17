@@ -82,10 +82,6 @@ class Light {
     }
   }
 
-  compareNumbers(a, b) {
-    return a - b;
-  }
-
   lookRayCollision() {
     if (this.grid) {
       for (const ray of this.rays) {

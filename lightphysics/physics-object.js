@@ -25,7 +25,12 @@ class PhysicsObject {
     }
 
     isOffScreen() {
-        return this.body.position.y > height + CONFIG.OFF_SCREEN_MARGIN;
+        const pos = this.body.position;
+        const margin = CONFIG.OFF_SCREEN_MARGIN;
+        return pos.y > height + margin ||
+               pos.y < -margin ||
+               pos.x > width + margin ||
+               pos.x < -margin;
     }
 
     removeFromWorld() {

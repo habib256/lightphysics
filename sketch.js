@@ -24,7 +24,6 @@ let glassBoxes = [];
 let lights = [];
 let dioptres = [];
 let backgrounds = [];
-let backImg;
 let mouseConstraint;
 let spatialGrid;
 
@@ -51,8 +50,6 @@ function setup() {
 
   mouseConstraint = MouseConstraint.create(engine, { mouse: mouse });
   World.add(world, mouseConstraint);
-
-  backImg = backgrounds[4];
 
   spatialGrid = new SpatialGrid(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT, CONFIG.GRID_CELL_SIZE);
 
@@ -93,7 +90,6 @@ function draw() {
     text('FPS: ' + frameRate().toFixed(1), 10, 20);
   }
 
-  Engine.update(engine);
 }
 
 function updateDioptres() {
@@ -120,10 +116,6 @@ function createWalls() {
     timeScale: 1
   };
   boxes.push(new Box(width / 2, height - 20, width - 400, 20, options, boxesImg));
-}
-
-function drawBackground() {
-  image(backImg, 0, 0);
 }
 
 function generateBox(x, y, w, h, img) {
