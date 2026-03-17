@@ -521,7 +521,7 @@ class Light {
   }
 
   finalizePolygonGroup(group) {
-    if (group.count === 0) return;
+    if (group.count === 0 || group.entryPoints.length === 0 || group.exitPoints.length === 0) return;
 
     // Average intensity
     group.intensity = group.intensity / group.count;
@@ -552,7 +552,7 @@ class Light {
     const ctx = drawingContext;
 
     for (const group of this.refractedPolygons) {
-      if (group.count < 2 || group.maxDist < 1) continue;
+      if (group.count < 2 || group.maxDist < 1 || group.exitPoints.length === 0 || group.entryPoints.length === 0) continue;
 
       const alphaVal = Math.min(group.intensity * CONFIG.REFRACTED_BEAM_INTENSITY_BOOST, 1.0);
 
