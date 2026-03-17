@@ -68,7 +68,6 @@ function draw() {
     text('FPS: ' + frameRate().toFixed(1), 10, 20);
   }
 
-  Engine.update(engine);
 }
 
 function updateDioptres() {
@@ -91,11 +90,3 @@ function manageObjects() {
   time = time + 0.01;
 }
 
-function manageOffScreenObjects(objects) {
-  for (let i = objects.length - 1; i >= 0; i--) {
-    if (objects[i].isOffScreen()) {
-      objects[i].removeFromWorld();
-      objects.splice(i, 1);
-    }
-  }
-}

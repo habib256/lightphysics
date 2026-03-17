@@ -76,10 +76,12 @@ function setup() {
 }
 
 
+let gameMouse;
+
 function setupMouseConstraint() {
-  const mouse = Mouse.create(canvas.elt);
+  gameMouse = Mouse.create(canvas.elt);
   const options = {
-    mouse: mouse,
+    mouse: gameMouse,
     constraint: {
       stiffness: 0.2
     }
@@ -123,6 +125,7 @@ function setupPaddle() {
     restitution: 1
   };
   const mouseConstraint = MouseConstraint.create(engine, {
+    mouse: gameMouse,
     constraint: {
       render: { visible: false },
       stiffness: 0.8
@@ -135,6 +138,7 @@ function setupPaddle() {
 function setupCollisionEvents() {
   Matter.Events.on(engine, 'collisionEnd', ({ pairs }) => {
     pairs.forEach(({ bodyA, bodyB }) => {
+      if (balls.length === 0) return;
       let id;
       if (bodyA.id === balls[0].body.id) {
         id = bodyB.id;
@@ -163,6 +167,11 @@ function draw() {
 
   background(0);
 
+  // Respawn ball if lost
+  if (balls.length === 0) {
+    setupBall();
+  }
+
   let vx = balls[0].getVX();
   let vy = balls[0].getVY();
   const v = sqrt(vx * vx + vy * vy);
@@ -170,7 +179,7 @@ function draw() {
   if (v < CONFIG.BALL_SPEED_MIN) { vx = vx * CONFIG.VELOCITY_BOOST; vy = vy * CONFIG.VELOCITY_BOOST; }
   MyBody.setVelocity(balls[0].body, { x: vx, y: vy });
 
-  if (boxes.length === 1) {
+  if (boxes.length <= 4) {
     const options = {
       isStatic: true,
       timeScale: 1
@@ -193,7 +202,6 @@ function draw() {
     text('FPS: ' + frameRate().toFixed(1), 10, 20);
   }
 
-  Engine.update(engine);
 }
 
 function updateDioptres() {

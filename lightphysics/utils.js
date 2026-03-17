@@ -8,8 +8,8 @@ function rotatePt(Mx, My, Ox, Oy, cosA, sinA) {
     const xM = Mx - Ox;
     const yM = My - Oy;
     return {
-        x: Math.round(xM * cosA + yM * sinA + Ox),
-        y: Math.round(-xM * sinA + yM * cosA + Oy)
+        x: xM * cosA + yM * sinA + Ox,
+        y: -xM * sinA + yM * cosA + Oy
     };
 }
 
