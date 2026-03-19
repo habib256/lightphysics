@@ -169,7 +169,7 @@ class Light {
       originX, originY, normRefDirX, normRefDirY,
       endpointX, endpointY,
       colorIdx.n, 0, beamIntensity,
-      group
+      group, 0, true, dioptreIdx, colorIdx.absorption
     );
   }
 
@@ -204,22 +204,26 @@ class Light {
     const srcB = blue(this.color);
     const srcA = alpha(this.color) / 255;
 
-    const colorIndices = [
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_R, r: srcR, g: 0, b: 0, intensity: srcA },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_G, r: 0, g: srcG, b: 0, intensity: srcA },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA },
+    const allColorIndices = [
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_R, r: srcR, g: 0, b: 0, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_R },
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_G, r: 0, g: srcG, b: 0, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_G },
+      { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_B },
     ];
+    // Skip channels with zero color contribution to avoid wasted computation
+    const colorIndices = allColorIndices.filter(ci => ci.r + ci.g + ci.b > 0);
+    const numChannels = colorIndices.length;
+    if (numChannels === 0) return;
 
     // Per-channel active polygon groups and tracking
-    const currentGroups = [null, null, null];
-    const lastDioptre = [-1, -1, -1];
-    const lastHitX = [0, 0, 0];
-    const lastHitY = [0, 0, 0];
+    const currentGroups = new Array(numChannels).fill(null);
+    const lastDioptre = new Array(numChannels).fill(-1);
+    const lastHitX = new Array(numChannels).fill(0);
+    const lastHitY = new Array(numChannels).fill(0);
 
     for (const ray of this.rays) {
       if (ray.hitGlassDioptreIndex < 0) {
         // No glass hit: close all active groups with trailing boundary
-        for (let c = 0; c < 3; c++) {
+        for (let c = 0; c < numChannels; c++) {
           this.closeGroupWithTrailingBoundary(
             currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
           );
@@ -236,7 +240,7 @@ class Light {
       const edgeDy = hitDioptre.by - hitDioptre.ay;
       const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
       if (edgeLen < 1e-8) {
-        for (let c = 0; c < 3; c++) {
+        for (let c = 0; c < numChannels; c++) {
           this.closeGroupWithTrailingBoundary(
             currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
           );
@@ -259,7 +263,7 @@ class Light {
 
       const cosI = -(ray.dir.x * nx + ray.dir.y * ny);
 
-      for (let c = 0; c < 3; c++) {
+      for (let c = 0; c < numChannels; c++) {
         const idx = colorIndices[c];
 
         // If dioptre changed, close previous group with trailing boundary and start fresh
@@ -349,7 +353,7 @@ class Light {
           originX, originY, normRefDirX, normRefDirY,
           ray.glassEnd.x, ray.glassEnd.y,
           idx.n, 0, beamIntensity,
-          currentGroups[c]
+          currentGroups[c], 0, true, ray.hitGlassDioptreIndex, idx.absorption
         );
 
         // Track last hit point for trailing boundary
@@ -359,14 +363,14 @@ class Light {
     }
 
     // Close any remaining open groups with trailing boundary
-    for (let c = 0; c < 3; c++) {
+    for (let c = 0; c < numChannels; c++) {
       this.closeGroupWithTrailingBoundary(
         currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], colorIndices[c]
       );
     }
   }
 
-  castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group, tirBounces = 0, inGlass = true) {
+  castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group, tirBounces = 0, inGlass = true, excludeDioptreIdx = -1, absorptionCoeff = CONFIG.GLASS_ABSORPTION_COEFF) {
     // Find closest intersection
     let record = CONFIG.REFRACTED_RAY_MAX_LENGTH * CONFIG.REFRACTED_RAY_MAX_LENGTH;
     let bestX = originX + dirX * CONFIG.REFRACTED_RAY_MAX_LENGTH;
@@ -387,6 +391,7 @@ class Light {
 
     for (let i = 0; i < count; i++) {
       const idx = candidateIndices ? candidateIndices[i] : i;
+      if (idx === excludeDioptreIdx) continue; // Skip source dioptre to prevent self-intersection
       const surface = dioptres[idx];
       const x1 = surface.ax;
       const y1 = surface.ay;
@@ -417,7 +422,7 @@ class Light {
     // Beer-Lambert absorption: attenuate based on distance traveled through glass
     if (inGlass) {
       const segDist = Math.sqrt(record);
-      intensity *= Math.exp(-CONFIG.GLASS_ABSORPTION_COEFF * segDist);
+      intensity *= Math.exp(-absorptionCoeff * segDist);
     }
 
     // Check if this beam will recurse (hit another glass surface)
@@ -453,8 +458,10 @@ class Light {
           const cosT = Math.sqrt(1.0 - sinT2);
 
           // Schlick's approximation for Fresnel transmission at exit
+          // For glass→air (n1>n2), use cosT (angle in less-dense medium) for correct grazing behavior
           const r0Exit = ((refractiveIndex - 1.0) / (refractiveIndex + 1.0)) ** 2;
-          const fresnelExit = r0Exit + (1.0 - r0Exit) * ((1.0 - cosI) ** 5);
+          const fresnelCos = inGlass ? cosT : cosI;
+          const fresnelExit = r0Exit + (1.0 - r0Exit) * ((1.0 - fresnelCos) ** 5);
           const exitIntensity = intensity * (1.0 - fresnelExit);
 
           const refDirX = ratio * dirX + (ratio * cosI - cosT) * nx;
@@ -468,7 +475,7 @@ class Light {
               refDirX / rLen, refDirY / rLen,
               bestX, bestY,
               refractiveIndex, depth + 1, exitIntensity,
-              group, 0, !inGlass
+              group, 0, !inGlass, bestDioptreIdx, absorptionCoeff
             );
           } else {
             // Can't compute exit direction: treat as terminal
@@ -494,7 +501,7 @@ class Light {
                 nReflX, nReflY,
                 bestX, bestY,
                 refractiveIndex, depth + 1, intensity,
-                group, tirBounces + 1
+                group, tirBounces + 1, inGlass, bestDioptreIdx, absorptionCoeff
               );
             } else {
               group.entryPoints.push({ x: drawFromX, y: drawFromY });
