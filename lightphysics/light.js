@@ -193,10 +193,8 @@ class Light {
 
     const cosT = Math.sqrt(1.0 - sinT2);
 
-    // Schlick's approximation for Fresnel transmission
-    const r0 = ((1.0 - colorIdx.n) / (1.0 + colorIdx.n)) ** 2;
-    const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
-    const beamIntensity = colorIdx.intensity * (1.0 - fresnel);
+    // No Fresnel reflection on glass — full intensity transmitted
+    const beamIntensity = colorIdx.intensity;
 
     if (beamIntensity < CONFIG.MIN_REFRACTED_INTENSITY) return;
 
@@ -219,12 +217,6 @@ class Light {
       colorIdx.n, 0, beamIntensity,
       group, 0, true, dioptreIdx, colorIdx.absorption
     );
-
-    // Partial reflection: trace reflected ray back into the scene
-    if (fresnel > 0.02) {
-      this._addReflectedRay(nDirX, nDirY, nx, ny, cosI,
-        endpointX, endpointY, colorIdx, fresnel, group);
-    }
   }
 
   _addReflectedRay(inDirX, inDirY, nx, ny, cosI, hitX, hitY, colorIdx, fresnel, group) {
@@ -388,10 +380,8 @@ class Light {
 
         const cosT = Math.sqrt(1.0 - sinT2);
 
-        // Schlick's approximation for Fresnel transmission
-        const r0 = ((1.0 - idx.n) / (1.0 + idx.n)) ** 2;
-        const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
-        const beamIntensity = idx.intensity * (1.0 - fresnel);
+        // No Fresnel reflection on glass — full intensity transmitted
+        const beamIntensity = idx.intensity;
 
         if (beamIntensity < CONFIG.MIN_REFRACTED_INTENSITY) continue;
 
@@ -450,12 +440,6 @@ class Light {
           idx.n, 0, beamIntensity,
           currentGroups[c], 0, true, ray.hitGlassDioptreIndex, idx.absorption
         );
-
-        // Partial reflection at glass entry
-        if (fresnel > 0.02) {
-          this._addReflectedRay(ray.dir.x, ray.dir.y, nx, ny, cosI,
-            ray.glassEnd.x, ray.glassEnd.y, idx, fresnel, currentGroups[c]);
-        }
 
         // Track last hit point for trailing boundary
         lastHitX[c] = ray.glassEnd.x;
@@ -594,12 +578,8 @@ class Light {
         if (sinT2 <= 1.0) {
           const cosT = Math.sqrt(1.0 - sinT2);
 
-          // Schlick's approximation for Fresnel transmission
-          // Use cosine from the less-dense medium side
-          const r0Exit = ((refractiveIndex - 1.0) / (refractiveIndex + 1.0)) ** 2;
-          const fresnelCos = inGlass ? cosT : cosI;
-          const fresnelExit = r0Exit + (1.0 - r0Exit) * ((1.0 - fresnelCos) ** 5);
-          const exitIntensity = intensity * (1.0 - fresnelExit);
+          // No Fresnel reflection — full intensity transmitted at exit
+          const exitIntensity = intensity;
 
           const refDirX = ratio * dirX + (ratio * cosI - cosT) * nx;
           const refDirY = ratio * dirY + (ratio * cosI - cosT) * ny;
