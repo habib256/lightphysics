@@ -13,9 +13,6 @@ class Ray {
     this.color = color;
     this.end = { x: pos.x, y: pos.y };
     this.hitDioptreIndex = -1;
-    this.glassEnd = { x: pos.x, y: pos.y };
-    this.hitGlassDioptreIndex = -1;
-    this.glassShadow = 1.0; // 1.0 = no glass in path, reduced when glass is in front
   }
 
   lookAt(x, y) {
@@ -51,24 +48,17 @@ class Ray {
 
   calculateIntersection(dioptres, dioptreCount) {
     let record = Infinity;
-    let glassRecord = Infinity;
     const posX = this.pos.x;
     const posY = this.pos.y;
-    const dirX = this.dir.x;
-    const dirY = this.dir.y;
     const x3 = posX;
     const y3 = posY;
-    const x4 = posX + dirX;
-    const y4 = posY + dirY;
+    const x4 = posX + this.dir.x;
+    const y4 = posY + this.dir.y;
     const count = dioptreCount !== undefined ? dioptreCount : dioptres.length;
 
     this.end.x = posX;
     this.end.y = posY;
     this.hitDioptreIndex = -1;
-    this.glassEnd.x = posX;
-    this.glassEnd.y = posY;
-    this.hitGlassDioptreIndex = -1;
-    this.glassShadow = 1.0;
 
     for (let i = 0; i < count; i++) {
       const surface = dioptres[i];
@@ -90,54 +80,30 @@ class Ray {
         const dx = ptX - posX;
         const dy = ptY - posY;
         const dSq = dx * dx + dy * dy;
-        if (surface.isGlass) {
-          if (dSq < glassRecord) {
-            glassRecord = dSq;
-            this.glassEnd.x = ptX;
-            this.glassEnd.y = ptY;
-            this.hitGlassDioptreIndex = i;
-          }
-        } else {
-          if (dSq < record) {
-            record = dSq;
-            this.end.x = ptX;
-            this.end.y = ptY;
-            this.hitDioptreIndex = i;
-          }
+        if (dSq < record) {
+          record = dSq;
+          this.end.x = ptX;
+          this.end.y = ptY;
+          this.hitDioptreIndex = i;
         }
       }
-    }
-
-    // Discard glass hit if it is behind the closest opaque hit
-    if (glassRecord >= record) {
-      this.hitGlassDioptreIndex = -1;
-    } else {
-      // Glass is in front of opaque surface: dim the main light polygon
-      this.glassShadow = CONFIG.GLASS_SHADOW_FACTOR;
     }
   }
 
   calculateIntersectionWithGrid(dioptres, grid) {
     let record = Infinity;
-    let glassRecord = Infinity;
     const posX = this.pos.x;
     const posY = this.pos.y;
-    const dirX = this.dir.x;
-    const dirY = this.dir.y;
     const x3 = posX;
     const y3 = posY;
-    const x4 = posX + dirX;
-    const y4 = posY + dirY;
+    const x4 = posX + this.dir.x;
+    const y4 = posY + this.dir.y;
 
     this.end.x = posX;
     this.end.y = posY;
     this.hitDioptreIndex = -1;
-    this.glassEnd.x = posX;
-    this.glassEnd.y = posY;
-    this.hitGlassDioptreIndex = -1;
-    this.glassShadow = 1.0;
 
-    const indices = grid.getDioptresForRay(posX, posY, dirX, dirY);
+    const indices = grid.getDioptresForRay(posX, posY, this.dir.x, this.dir.y);
 
     for (let i = 0; i < indices.length; i++) {
       const surface = dioptres[indices[i]];
@@ -159,30 +125,13 @@ class Ray {
         const dx = ptX - posX;
         const dy = ptY - posY;
         const dSq = dx * dx + dy * dy;
-        if (surface.isGlass) {
-          if (dSq < glassRecord) {
-            glassRecord = dSq;
-            this.glassEnd.x = ptX;
-            this.glassEnd.y = ptY;
-            this.hitGlassDioptreIndex = indices[i];
-          }
-        } else {
-          if (dSq < record) {
-            record = dSq;
-            this.end.x = ptX;
-            this.end.y = ptY;
-            this.hitDioptreIndex = indices[i];
-          }
+        if (dSq < record) {
+          record = dSq;
+          this.end.x = ptX;
+          this.end.y = ptY;
+          this.hitDioptreIndex = indices[i];
         }
       }
-    }
-
-    // Discard glass hit if it is behind the closest opaque hit
-    if (glassRecord >= record) {
-      this.hitGlassDioptreIndex = -1;
-    } else {
-      // Glass is in front of opaque surface: dim the main light polygon
-      this.glassShadow = CONFIG.GLASS_SHADOW_FACTOR;
     }
   }
 }
