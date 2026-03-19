@@ -14,12 +14,20 @@ class GlassLens extends PhysicsObject {
         const halfThick = thickness / 2;
         const vertices = GlassLens._computeVertices(radius, halfThick, segs);
 
-        const body = Bodies.fromVertices(x, y, vertices, options);
+        // Use chamfer:0 to avoid vertex processing issues in Matter.js
+        const body = Bodies.fromVertices(x, y, vertices, Object.assign({}, options));
         super(body);
         this.diameter = diameter;
         this.thickness = thickness;
         this.segments = segs;
-        this._localVerts = vertices;
+
+        // Recompute local vertices relative to body center of mass
+        // Bodies.fromVertices may shift the position to the center of mass
+        const bpos = body.position;
+        this._localVerts = vertices.map(v => ({
+            x: v.x - (bpos.x - x),
+            y: v.y - (bpos.y - y)
+        }));
     }
 
     static _computeVertices(radius, halfThick, segs) {
@@ -31,6 +39,7 @@ class GlassLens extends PhysicsObject {
         const verts = [];
 
         // Right curved surface (center of curvature at x = halfThick - R)
+        // Skip first vertex (pole) - will be shared with left arc end
         const cx1 = halfThick - R;
         for (let i = 0; i <= segs; i++) {
             const frac = i / segs;
@@ -43,8 +52,9 @@ class GlassLens extends PhysicsObject {
         }
 
         // Left curved surface (center of curvature at x = -(halfThick - R) = R - halfThick)
+        // Skip first and last vertex to avoid duplicates at poles
         const cx2 = R - halfThick;
-        for (let i = segs; i >= 0; i--) {
+        for (let i = segs - 1; i >= 1; i--) {
             const frac = i / segs;
             const y = -radius + frac * (2 * radius);
             const xSq = R * R - y * y;

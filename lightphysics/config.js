@@ -101,4 +101,5 @@ const CONFIG = Object.freeze({
     BOUNDARY_RAY_MIN_GAP: 2.0,
     GLASS_SHADOW_FACTOR: 0.35,        // How much main light is dimmed behind glass
     DIOPTRE_EXCLUDE_DISTANCE_SQ: 1.0, // Exclude dioptres within this distance² (adjacent glass)
+    AIR_ATTENUATION_FACTOR: 0.00002,  // Inverse-square falloff for refracted beams in air
 });
