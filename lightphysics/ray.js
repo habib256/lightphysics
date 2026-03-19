@@ -15,6 +15,7 @@ class Ray {
     this.hitDioptreIndex = -1;
     this.glassEnd = { x: pos.x, y: pos.y };
     this.hitGlassDioptreIndex = -1;
+    this.glassShadow = 1.0; // 1.0 = no glass in path, reduced when glass is in front
   }
 
   lookAt(x, y) {
@@ -67,6 +68,7 @@ class Ray {
     this.glassEnd.x = posX;
     this.glassEnd.y = posY;
     this.hitGlassDioptreIndex = -1;
+    this.glassShadow = 1.0;
 
     for (let i = 0; i < count; i++) {
       const surface = dioptres[i];
@@ -109,6 +111,9 @@ class Ray {
     // Discard glass hit if it is behind the closest opaque hit
     if (glassRecord >= record) {
       this.hitGlassDioptreIndex = -1;
+    } else {
+      // Glass is in front of opaque surface: dim the main light polygon
+      this.glassShadow = CONFIG.GLASS_SHADOW_FACTOR;
     }
   }
 
@@ -130,6 +135,7 @@ class Ray {
     this.glassEnd.x = posX;
     this.glassEnd.y = posY;
     this.hitGlassDioptreIndex = -1;
+    this.glassShadow = 1.0;
 
     const indices = grid.getDioptresForRay(posX, posY, dirX, dirY);
 
@@ -174,6 +180,9 @@ class Ray {
     // Discard glass hit if it is behind the closest opaque hit
     if (glassRecord >= record) {
       this.hitGlassDioptreIndex = -1;
+    } else {
+      // Glass is in front of opaque surface: dim the main light polygon
+      this.glassShadow = CONFIG.GLASS_SHADOW_FACTOR;
     }
   }
 }

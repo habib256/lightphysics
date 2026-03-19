@@ -21,6 +21,8 @@ let boxesImg = [];
 let balls = [];
 let ballsImg = [];
 let glassBoxes = [];
+let glassTriangles = [];
+let glassLenses = [];
 let lights = [];
 let dioptres = [];
 let backgrounds = [];
@@ -79,6 +81,8 @@ function draw() {
   drawBoxes();
   drawBalls();
   drawGlassBoxes();
+  drawGlassTriangles();
+  drawGlassLenses();
 
   drawLights();
 
@@ -102,6 +106,12 @@ function updateDioptres() {
   }
   for (let i = 0; i < glassBoxes.length; i++) {
     glassBoxes[i].pushDioptres();
+  }
+  for (let i = 0; i < glassTriangles.length; i++) {
+    glassTriangles[i].pushDioptres();
+  }
+  for (let i = 0; i < glassLenses.length; i++) {
+    glassLenses[i].pushDioptres();
   }
   spatialGrid.updateMaxDioptres(dioptreCount);
   spatialGrid.build(dioptres, dioptreCount);
@@ -137,16 +147,38 @@ function generateGlassBox(x, y, w, h) {
   glassBoxes.push(new GlassBox(x, y, w, h, options));
 }
 
+function generateGlassTriangle(x, y, base, h) {
+  const options = {
+    timeScale: 1
+  };
+  glassTriangles.push(new GlassTriangle(x, y, base, h, options));
+}
+
+function generateGlassLens(x, y, diameter, thickness) {
+  const options = {
+    timeScale: 1
+  };
+  glassLenses.push(new GlassLens(x, y, diameter, thickness, 10, options));
+}
+
 function manageObjects() {
   manageOffScreenObjects(boxes);
   manageOffScreenObjects(balls);
   manageOffScreenObjects(glassBoxes);
+  manageOffScreenObjects(glassTriangles);
+  manageOffScreenObjects(glassLenses);
 
   if (frameCount % CONFIG.SPAWN_INTERVAL === 0) {
     const rand = Math.random();
-    if (rand < CONFIG.GLASS_SPAWN_PROBABILITY) {
+    if (rand < 0.07) {
+      // Spawn glass triangle (prism)
+      generateGlassTriangle(random(200, width - 150), 0, random(60, 120), random(60, 120));
+    } else if (rand < 0.12) {
+      // Spawn glass lens
+      generateGlassLens(random(200, width - 150), 0, random(50, 100), random(15, 35));
+    } else if (rand < CONFIG.GLASS_SPAWN_PROBABILITY + 0.12) {
       generateGlassBox(random(200, width - 150), 0, random(40, 120), random(40, 120));
-    } else if (rand < CONFIG.GLASS_SPAWN_PROBABILITY + (1 - CONFIG.GLASS_SPAWN_PROBABILITY) * CONFIG.SPAWN_PROBABILITY) {
+    } else if (rand < CONFIG.GLASS_SPAWN_PROBABILITY + 0.12 + (1 - CONFIG.GLASS_SPAWN_PROBABILITY - 0.12) * CONFIG.SPAWN_PROBABILITY) {
       generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
     } else {
       generateBall(random(200, width - 150), 0, random(10, 50), { timeScale: 1 }, ballsImg);

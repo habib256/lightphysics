@@ -38,6 +38,18 @@ function drawGlassBoxes() {
     }
 }
 
+function drawGlassTriangles() {
+    for (let i = 0; i < glassTriangles.length; i++) {
+        glassTriangles[i].show();
+    }
+}
+
+function drawGlassLenses() {
+    for (let i = 0; i < glassLenses.length; i++) {
+        glassLenses[i].show();
+    }
+}
+
 function drawLights() {
     blendMode(ADD);
     for (const light of lights) {
