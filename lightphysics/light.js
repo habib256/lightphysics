@@ -219,32 +219,6 @@ class Light {
     );
   }
 
-  _addReflectedRay(inDirX, inDirY, nx, ny, cosI, hitX, hitY, colorIdx, fresnel, group) {
-    // Reflect: r = d - 2(d·n)n, but d·n = -cosI (normal faces against d)
-    const reflDirX = inDirX + 2.0 * cosI * nx;
-    const reflDirY = inDirY + 2.0 * cosI * ny;
-    const reflLen = Math.sqrt(reflDirX * reflDirX + reflDirY * reflDirY);
-    if (reflLen < 1e-10) return;
-
-    const nrx = reflDirX / reflLen;
-    const nry = reflDirY / reflLen;
-    const reflIntensity = colorIdx.intensity * fresnel;
-
-    if (reflIntensity < CONFIG.MIN_REFRACTED_INTENSITY) return;
-
-    // Offset origin away from glass
-    const originX = hitX + nrx * 0.5;
-    const originY = hitY + nry * 0.5;
-
-    // Trace reflected beam (in air, not in glass)
-    this.castRefractedBeamForPolygon(
-      originX, originY, nrx, nry,
-      hitX, hitY,
-      colorIdx.n, 0, reflIntensity,
-      group, 0, false, -1, 0
-    );
-  }
-
   closeGroupWithTrailingBoundary(group, dioptreIdx, lastHitX, lastHitY, colorIdx) {
     if (group === null) return;
 
@@ -538,11 +512,16 @@ class Light {
     }
 
     // Beer-Lambert absorption: attenuate based on actual distance traveled through glass
+    const segDist = Math.sqrt(record);
     if (inGlass) {
-      const segDist = Math.sqrt(record);
       // Cap absorption distance to avoid over-absorption when no exit surface found
       const cappedDist = bestDioptreIdx >= 0 ? segDist : Math.min(segDist, 200);
       intensity *= Math.exp(-absorptionCoeff * cappedDist);
+    } else {
+      // Attenuate refracted beams traveling through air (inverse-square falloff)
+      // This prevents bright colored spots on opaque surfaces that look like reflections
+      const airAttenuation = 1.0 / (1.0 + segDist * segDist * CONFIG.AIR_ATTENUATION_FACTOR);
+      intensity *= airAttenuation;
     }
 
     // Check if this beam will recurse (hit another glass surface)
