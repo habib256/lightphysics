@@ -23,31 +23,13 @@ function resetDioptres() {
     pushDioptre(0, height, 0, 0);
 }
 
-function pushDioptre(x1, y1, x2, y2, isGlass) {
+function pushDioptre(x1, y1, x2, y2) {
     if (dioptreCount < dioptres.length) {
-        dioptres[dioptreCount].set(x1, y1, x2, y2, isGlass);
+        dioptres[dioptreCount].set(x1, y1, x2, y2);
     } else {
-        dioptres.push(new Dioptre(x1, y1, x2, y2, isGlass));
+        dioptres.push(new Dioptre(x1, y1, x2, y2));
     }
     dioptreCount++;
-}
-
-function drawGlassBoxes() {
-    for (let i = 0; i < glassBoxes.length; i++) {
-        glassBoxes[i].show();
-    }
-}
-
-function drawGlassTriangles() {
-    for (let i = 0; i < glassTriangles.length; i++) {
-        glassTriangles[i].show();
-    }
-}
-
-function drawGlassLenses() {
-    for (let i = 0; i < glassLenses.length; i++) {
-        glassLenses[i].show();
-    }
 }
 
 function drawLights() {
