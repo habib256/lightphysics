@@ -65,20 +65,66 @@ class Light {
     gradient.addColorStop(0, `rgba(${r},${g},${b},${a})`);
     gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
 
-    // Draw light polygon with gradient fill
+    // Draw light polygon with gradient fill, attenuating through glass
     ctx.fillStyle = gradient;
     noStroke();
     beginShape();
     for (const ray of this.rays) {
+      // Dim vertices where ray passes through glass
+      if (ray.glassShadow < 1.0) {
+        ctx.fillStyle = gradient; // keep same gradient, shadow applied via separate pass
+      }
       vertex(ray.end.x, ray.end.y);
     }
     endShape(CLOSE);
+
+    // Draw shadow overlay where glass blocks light
+    this._drawGlassShadow(r, g, b, a, maxDist);
 
     // Draw refracted light polygons
     this.drawRefractedPolygons();
 
     if (this.showRays) {
       this.renderBestRays();
+    }
+  }
+
+  _drawGlassShadow(r, g, b, a, maxDist) {
+    // Draw a darkened polygon for ray segments that pass through glass
+    // This creates the shadow effect behind glass objects
+    const ctx = drawingContext;
+    let inShadow = false;
+    let shadowStart = -1;
+
+    for (let i = 0; i <= this.rays.length; i++) {
+      const ray = this.rays[i % this.rays.length];
+      const isShadowed = ray.glassShadow < 1.0;
+
+      if (isShadowed && !inShadow) {
+        shadowStart = i;
+        inShadow = true;
+      } else if ((!isShadowed || i === this.rays.length) && inShadow) {
+        // Draw shadow polygon for this run of shadowed rays
+        const shadowFactor = 1.0 - CONFIG.GLASS_SHADOW_FACTOR;
+        const gradient2 = ctx.createRadialGradient(
+          this.pos.x, this.pos.y, 0,
+          this.pos.x, this.pos.y, maxDist
+        );
+        gradient2.addColorStop(0, `rgba(0,0,0,${a * shadowFactor})`);
+        gradient2.addColorStop(1, `rgba(0,0,0,0)`);
+        ctx.fillStyle = gradient2;
+
+        ctx.beginPath();
+        ctx.moveTo(this.pos.x, this.pos.y);
+        for (let j = shadowStart; j < i; j++) {
+          const sr = this.rays[j % this.rays.length];
+          ctx.lineTo(sr.end.x, sr.end.y);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        inShadow = false;
+      }
     }
   }
 
@@ -108,7 +154,7 @@ class Light {
   }
 
   closeGroup(group) {
-    if (group && group.count >= 2) {
+    if (group && group.count >= 1) {
       this.finalizePolygonGroup(group);
       this.refractedPolygons.push(group);
     }
@@ -140,10 +186,10 @@ class Light {
     const cosI = -(nDirX * nx + nDirY * ny);
     if (cosI <= 0) return;
 
-    // Snell's law: air to glass
+    // Snell's law: air to glass (n1=1, n2=n)
     const ratio = 1.0 / colorIdx.n;
     const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
-    if (sinT2 > 1.0) return; // Total internal reflection
+    if (sinT2 > 1.0) return;
 
     const cosT = Math.sqrt(1.0 - sinT2);
 
@@ -151,6 +197,8 @@ class Light {
     const r0 = ((1.0 - colorIdx.n) / (1.0 + colorIdx.n)) ** 2;
     const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
     const beamIntensity = colorIdx.intensity * (1.0 - fresnel);
+
+    if (beamIntensity < CONFIG.MIN_REFRACTED_INTENSITY) return;
 
     // Refracted direction
     const refDirX = ratio * nDirX + (ratio * cosI - cosT) * nx;
@@ -170,6 +218,38 @@ class Light {
       endpointX, endpointY,
       colorIdx.n, 0, beamIntensity,
       group, 0, true, dioptreIdx, colorIdx.absorption
+    );
+
+    // Partial reflection: trace reflected ray back into the scene
+    if (fresnel > 0.02) {
+      this._addReflectedRay(nDirX, nDirY, nx, ny, cosI,
+        endpointX, endpointY, colorIdx, fresnel, group);
+    }
+  }
+
+  _addReflectedRay(inDirX, inDirY, nx, ny, cosI, hitX, hitY, colorIdx, fresnel, group) {
+    // Reflect: r = d - 2(d·n)n, but d·n = -cosI (normal faces against d)
+    const reflDirX = inDirX + 2.0 * cosI * nx;
+    const reflDirY = inDirY + 2.0 * cosI * ny;
+    const reflLen = Math.sqrt(reflDirX * reflDirX + reflDirY * reflDirY);
+    if (reflLen < 1e-10) return;
+
+    const nrx = reflDirX / reflLen;
+    const nry = reflDirY / reflLen;
+    const reflIntensity = colorIdx.intensity * fresnel;
+
+    if (reflIntensity < CONFIG.MIN_REFRACTED_INTENSITY) return;
+
+    // Offset origin away from glass
+    const originX = hitX + nrx * 0.5;
+    const originY = hitY + nry * 0.5;
+
+    // Trace reflected beam (in air, not in glass)
+    this.castRefractedBeamForPolygon(
+      originX, originY, nrx, nry,
+      hitX, hitY,
+      colorIdx.n, 0, reflIntensity,
+      group, 0, false, -1, 0
     );
   }
 
@@ -195,22 +275,43 @@ class Light {
     this.closeGroup(group);
   }
 
-  computeRefractedRays() {
-    this.refractedPolygons.length = 0;
-
-    // Derive refracted beam colors from source light (energy conservation)
+  _buildColorIndices() {
     const srcR = red(this.color);
     const srcG = green(this.color);
     const srcB = blue(this.color);
     const srcA = alpha(this.color) / 255;
+    // Normalize source color to get per-channel weight
+    const srcMax = Math.max(srcR, srcG, srcB, 1);
 
-    const allColorIndices = [
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_R, r: srcR, g: 0, b: 0, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_R },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_G, r: 0, g: srcG, b: 0, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_G },
-      { n: CONFIG.GLASS_REFRACTIVE_INDEX_B, r: 0, g: 0, b: srcB, intensity: srcA, absorption: CONFIG.GLASS_ABSORPTION_COEFF_B },
-    ];
-    // Skip channels with zero color contribution to avoid wasted computation
-    const colorIndices = allColorIndices.filter(ci => ci.r + ci.g + ci.b > 0);
+    const indices = [];
+    const wavelengths = CONFIG.SPECTRUM_WAVELENGTHS;
+    const colors = CONFIG.SPECTRUM_COLORS;
+    const refIndices = CONFIG.SPECTRUM_INDICES;
+    const absorptions = CONFIG.SPECTRUM_ABSORPTIONS;
+
+    for (let i = 0; i < wavelengths.length; i++) {
+      const [wr, wg, wb] = colors[i];
+      // Scale spectral color by light source color
+      const cr = Math.round(wr * srcR / 255);
+      const cg = Math.round(wg * srcG / 255);
+      const cb = Math.round(wb * srcB / 255);
+      if (cr + cg + cb <= 0) continue;
+
+      indices.push({
+        n: refIndices[i],
+        r: cr, g: cg, b: cb,
+        intensity: srcA,
+        absorption: absorptions[i],
+        wavelength: wavelengths[i]
+      });
+    }
+    return indices;
+  }
+
+  computeRefractedRays() {
+    this.refractedPolygons.length = 0;
+
+    const colorIndices = this._buildColorIndices();
     const numChannels = colorIndices.length;
     if (numChannels === 0) return;
 
@@ -275,16 +376,13 @@ class Light {
         }
         lastDioptre[c] = ray.hitGlassDioptreIndex;
 
-        const ratio = 1.0 / idx.n; // air to glass
+        // Air→glass: ratio = 1/n, sinT2 always < 1 (no TIR possible)
+        const ratio = 1.0 / idx.n;
         const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
 
-        // Total internal reflection: close the group for this channel
-        if (sinT2 > 1.0) {
-          this.closeGroupWithTrailingBoundary(
-            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
-          );
-          currentGroups[c] = null;
-          lastDioptre[c] = -1;
+        // sinT2 > 1 is physically impossible for air→glass (n>1),
+        // but guard against numerical edge cases
+        if (sinT2 >= 1.0) {
           continue;
         }
 
@@ -295,17 +393,14 @@ class Light {
         const fresnel = r0 + (1.0 - r0) * ((1.0 - cosI) ** 5);
         const beamIntensity = idx.intensity * (1.0 - fresnel);
 
+        if (beamIntensity < CONFIG.MIN_REFRACTED_INTENSITY) continue;
+
         // Snell's law refracted direction
         const refDirX = ratio * ray.dir.x + (ratio * cosI - cosT) * nx;
         const refDirY = ratio * ray.dir.y + (ratio * cosI - cosT) * ny;
 
         const rLen = Math.sqrt(refDirX * refDirX + refDirY * refDirY);
         if (rLen < 1e-10) {
-          this.closeGroupWithTrailingBoundary(
-            currentGroups[c], lastDioptre[c], lastHitX[c], lastHitY[c], idx
-          );
-          currentGroups[c] = null;
-          lastDioptre[c] = -1;
           continue;
         }
         const normRefDirX = refDirX / rLen;
@@ -356,6 +451,12 @@ class Light {
           currentGroups[c], 0, true, ray.hitGlassDioptreIndex, idx.absorption
         );
 
+        // Partial reflection at glass entry
+        if (fresnel > 0.02) {
+          this._addReflectedRay(ray.dir.x, ray.dir.y, nx, ny, cosI,
+            ray.glassEnd.x, ray.glassEnd.y, idx, fresnel, currentGroups[c]);
+        }
+
         // Track last hit point for trailing boundary
         lastHitX[c] = ray.glassEnd.x;
         lastHitY[c] = ray.glassEnd.y;
@@ -370,7 +471,26 @@ class Light {
     }
   }
 
+  _isDioptreNear(idx, x, y) {
+    // Check if a dioptre's midpoint is too close to a position (adjacent glass detection)
+    const d = dioptres[idx];
+    const mx = (d.ax + d.bx) * 0.5;
+    const my = (d.ay + d.by) * 0.5;
+    const dx = mx - x;
+    const dy = my - y;
+    return (dx * dx + dy * dy) < CONFIG.DIOPTRE_EXCLUDE_DISTANCE_SQ;
+  }
+
   castRefractedBeamForPolygon(originX, originY, dirX, dirY, drawFromX, drawFromY, refractiveIndex, depth, intensity, group, tirBounces = 0, inGlass = true, excludeDioptreIdx = -1, absorptionCoeff = CONFIG.GLASS_ABSORPTION_COEFF) {
+    // Intensity cutoff: don't trace nearly invisible rays
+    if (intensity < CONFIG.MIN_REFRACTED_INTENSITY) {
+      group.entryPoints.push({ x: drawFromX, y: drawFromY });
+      group.exitPoints.push({ x: originX + dirX * 10, y: originY + dirY * 10 });
+      group.intensity += intensity;
+      group.count++;
+      return;
+    }
+
     // Find closest intersection
     let record = CONFIG.REFRACTED_RAY_MAX_LENGTH * CONFIG.REFRACTED_RAY_MAX_LENGTH;
     let bestX = originX + dirX * CONFIG.REFRACTED_RAY_MAX_LENGTH;
@@ -391,7 +511,21 @@ class Light {
 
     for (let i = 0; i < count; i++) {
       const idx = candidateIndices ? candidateIndices[i] : i;
-      if (idx === excludeDioptreIdx) continue; // Skip source dioptre to prevent self-intersection
+      if (idx === excludeDioptreIdx) continue;
+
+      // Skip dioptres that overlap with the excluded one (adjacent glass boxes)
+      if (excludeDioptreIdx >= 0 && dioptres[idx].isGlass) {
+        const exD = dioptres[excludeDioptreIdx];
+        const curD = dioptres[idx];
+        const midX = (exD.ax + exD.bx) * 0.5;
+        const midY = (exD.ay + exD.by) * 0.5;
+        const curMidX = (curD.ax + curD.bx) * 0.5;
+        const curMidY = (curD.ay + curD.by) * 0.5;
+        const ddx = midX - curMidX;
+        const ddy = midY - curMidY;
+        if (ddx * ddx + ddy * ddy < CONFIG.DIOPTRE_EXCLUDE_DISTANCE_SQ) continue;
+      }
+
       const surface = dioptres[idx];
       const x1 = surface.ax;
       const y1 = surface.ay;
@@ -419,10 +553,12 @@ class Light {
       }
     }
 
-    // Beer-Lambert absorption: attenuate based on distance traveled through glass
+    // Beer-Lambert absorption: attenuate based on actual distance traveled through glass
     if (inGlass) {
       const segDist = Math.sqrt(record);
-      intensity *= Math.exp(-absorptionCoeff * segDist);
+      // Cap absorption distance to avoid over-absorption when no exit surface found
+      const cappedDist = bestDioptreIdx >= 0 ? segDist : Math.min(segDist, 200);
+      intensity *= Math.exp(-absorptionCoeff * cappedDist);
     }
 
     // Check if this beam will recurse (hit another glass surface)
@@ -451,14 +587,15 @@ class Light {
         const cosI = -(dirX * nx + dirY * ny);
 
         // Snell's law ratio depends on current medium
+        // glass→air: η = n/1 = n ; air→glass: η = 1/n
         const ratio = inGlass ? refractiveIndex : (1.0 / refractiveIndex);
         const sinT2 = ratio * ratio * (1.0 - cosI * cosI);
 
         if (sinT2 <= 1.0) {
           const cosT = Math.sqrt(1.0 - sinT2);
 
-          // Schlick's approximation for Fresnel transmission at exit
-          // For glass→air (n1>n2), use cosT (angle in less-dense medium) for correct grazing behavior
+          // Schlick's approximation for Fresnel transmission
+          // Use cosine from the less-dense medium side
           const r0Exit = ((refractiveIndex - 1.0) / (refractiveIndex + 1.0)) ** 2;
           const fresnelCos = inGlass ? cosT : cosI;
           const fresnelExit = r0Exit + (1.0 - r0Exit) * ((1.0 - fresnelCos) ** 5);
@@ -478,7 +615,6 @@ class Light {
               group, 0, !inGlass, bestDioptreIdx, absorptionCoeff
             );
           } else {
-            // Can't compute exit direction: treat as terminal
             group.entryPoints.push({ x: drawFromX, y: drawFromY });
             group.exitPoints.push({ x: bestX, y: bestY });
             group.intensity += intensity;
@@ -510,7 +646,6 @@ class Light {
               group.count++;
             }
           } else {
-            // Depth or TIR bounce limit exhausted: treat as terminal
             group.entryPoints.push({ x: drawFromX, y: drawFromY });
             group.exitPoints.push({ x: bestX, y: bestY });
             group.intensity += intensity;
@@ -518,7 +653,6 @@ class Light {
           }
         }
       } else {
-        // Degenerate dioptre: treat as terminal
         group.entryPoints.push({ x: drawFromX, y: drawFromY });
         group.exitPoints.push({ x: bestX, y: bestY });
         group.intensity += intensity;
@@ -559,7 +693,7 @@ class Light {
     const ctx = drawingContext;
 
     for (const group of this.refractedPolygons) {
-      if (group.count < 2 || group.maxDist < 1) continue;
+      if (group.count < 1 || group.maxDist < 1) continue;
 
       const alphaVal = Math.min(group.intensity * CONFIG.REFRACTED_BEAM_INTENSITY_BOOST, 1.0);
 
