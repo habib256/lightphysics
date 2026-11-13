@@ -24,6 +24,7 @@ let lights = [];
 let dioptres = [];
 let backgrounds = [];
 let mouseConstraint;
+let runner;
 let spatialGrid;
 
 function preload() {
@@ -39,12 +40,14 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  const rendu = createCanvas(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
 
   engine = Engine.create();
   world = engine.world;
 
-  const mouse = Mouse.create(canvas.elt);
+  // Souris et doigt : Matter.Mouse écoute le canvas lui-même (rendu.elt).
+  // Ses coordonnées tiennent compte de la taille affichée du canvas et de pixelDensity().
+  const mouse = Mouse.create(rendu.elt);
   mouse.pixelRatio = pixelDensity();
 
   mouseConstraint = MouseConstraint.create(engine, { mouse: mouse });
@@ -65,10 +68,16 @@ function setup() {
     lights.push(new Light(x, y, color(255, 255, 255, 50), dioptres));
   }
 
-  Runner.run(Runner.create(), engine);
+  runner = Runner.create();
+  Runner.run(runner, engine);
+
+  // Tablettes et iframe : mise à l'échelle, tactile, pause hors écran (lightphysics/ecran.js).
+  Ecran.installer(rendu.elt, mouse, runner);
 }
 
 function draw() {
+  Ecran.surveillerCadence();
+
   manageObjects();
 
   updateDioptres();
