@@ -73,12 +73,15 @@ function setup() {
 
   // Tablettes et iframe : mise à l'échelle, tactile, pause hors écran (lightphysics/ecran.js).
   Ecran.installer(rendu.elt, mouse, runner);
+
+  // Masse et poids : astre, fiche de l'objet touché, flèche du poids, aide (lightphysics/pesanteur.js).
+  Pesanteur.installer(rendu.elt, mouseConstraint, runner, engine);
 }
 
 function draw() {
   Ecran.surveillerCadence();
 
-  manageObjects();
+  if (!Pesanteur.enPause()) manageObjects();
 
   updateDioptres();
 
@@ -88,6 +91,8 @@ function draw() {
   drawBalls();
 
   drawLights();
+
+  Pesanteur.dessiner();
 
   if (CONFIG.SHOW_FPS) {
     blendMode(BLEND);
@@ -119,19 +124,24 @@ function createWalls() {
     isStatic: true,
     timeScale: 1
   };
-  boxes.push(new Box(width / 2, height - 20, width - 400, 20, options, boxesImg));
+  // Plateau à 100 px du bas : la place sous les objets posés permet de dessiner la flèche du poids.
+  boxes.push(new Box(width / 2, height - 100, width - 400, 20, options, boxesImg));
 }
 
 function generateBox(x, y, w, h, img) {
   const options = {
     timeScale: 1
   };
-  boxes.push(new Box(x, y, w, h, options, img));
+  const caisse = new Box(x, y, w, h, options, img);
+  Pesanteur.donnerMasse(caisse);  // masse en kg, air négligé
+  boxes.push(caisse);
 }
 
 function generateBall(x, y, r, options, ballsImg) {
   options.restitution = CONFIG.BALL_RESTITUTION;
-  balls.push(new Ball(x, y, r, options, ballsImg));
+  const ballon = new Ball(x, y, r, options, ballsImg);
+  Pesanteur.donnerMasse(ballon);
+  balls.push(ballon);
 }
 
 function manageObjects() {
