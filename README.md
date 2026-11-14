@@ -54,6 +54,16 @@ L'app illustre le chapitre « Masse et poids » (4e) : le poids d'un objet dépe
 - Vérifié : la taille de l'ombre portée mesurée sur l'écran coïncide à 1 px près avec le calcul par Thalès et avec les rayons tangents, pour la source ponctuelle et pour la source étendue (ombre et pénombre).
 - `Ombres.etat()` dans la console donne les positions et les plages d'ombre et de pénombre sur l'écran. Aucune ressource externe, aucune donnée collectée.
 
+## Mode « Couleurs » (cours de 4e sur les couleurs, cours de 5e sur la lumière)
+
+`couleurs/index.html` (ouvrir `couleurs/index.html#faisceau` pour la seconde expérience) : vue de côté, Canvas 2D sans bibliothèque.
+
+- **Lampes colorées** (synthèse additive, TP 1 du cours) : trois projecteurs rouge, vert, bleu, déplaçables et orientables (rond blanc), un écran, un objet opaque facultatif. Chaque point de l'écran reçoit la somme des lumières qui l'atteignent : R + V = jaune, R + B = magenta, V + B = cyan, R + V + B = blanc ; l'objet donne des ombres colorées.
+- **Faisceau et prisme** : faisceau étroit de lumière blanche (31 radiations de 400 à 700 nm) ou rouge, verte, bleue (une seule radiation, comme un laser). Prisme en verre : réfraction à chaque face (n1 sin i1 = n2 sin i2, réflexion totale), indice de Cauchy n = 1,5515 + 23 750 / λ² (1,60 à 700 nm, 1,70 à 400 nm : dispersion **exagérée** environ 4 fois, signalée dans l'aide). Déviations vérifiées à la main : 46,3° (700 nm), 49,2° (550 nm, déviation minimale), 56,8° (400 nm). Filtres idéaux (TP 2) : rouge ≥ 595 nm, vert 495-565 nm, bleu ≤ 485 nm, jaune, cyan, magenta = sommes de deux bandes ; C + M = bleu, C + J = vert, M + J = rouge, C + M + J = noir.
+- **Rayon lumineux** : le modèle du cours de 5e (droite fléchée) ; les radiations qui suivent le même chemin forment un seul rayon de la couleur de leur somme.
+- **Noms** : nomme les couleurs reçues par l'écran (et les bouts « Violet », « Rouge » du spectre), pour vérifier après avoir cherché.
+- `Couleurs.etat()` dans la console. Aucune ressource externe, aucune donnée collectée.
+
 ## Performances (14/11/2026)
 
 - **Chargement : 6,7 Mo → 1,6 Mo** (43 → 27 requêtes) : les 7 fonds `graphics/mur0*.jpg` (2,4 Mo) n'étaient jamais affichés et ne sont plus chargés par `sketch.js` (ils restent pour `breakout.js`) ; images des ballons réduites à 256 px (la balle de tennis faisait 1 806 px et 2,1 Mo pour être dessinée sur 100 px au plus) ; `crate02.png`, opaque, devient `crate02.jpg` (315 → 51 ko) ; `p5.sound` et `paddle.js`, inutilisés par `index.html`, ne sont plus chargés (`index_debug.html` les garde).

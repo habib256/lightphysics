@@ -29,12 +29,12 @@
       #b-prisme { flex: 0.75 1 0; }
       .pastille { display: inline-block; width: 11px; height: 11px; margin-right: 4px; border: 1px solid #fff; vertical-align: -1px; }
       .legende { flex: 0 0 auto; align-self: center; font-size: 12px; font-weight: 700; opacity: .8; writing-mode: vertical-rl; transform: rotate(180deg); }
-      #aide { position: absolute; left: 168px; top: 8px; width: 456px; max-height: 400px; overflow-y: auto; box-sizing: border-box;
+      #aide { position: absolute; left: 168px; top: 8px; width: 470px; max-height: 420px; overflow-y: auto; box-sizing: border-box;
         margin: 0; padding: 8px 12px; border-radius: 10px; background: rgba(14,18,26,.94); border: 1px solid rgba(255,255,255,.3); }
-      #aide h2 { margin: 0 0 6px; font-size: 16px; }
+      #aide h2 { margin: 0 0 4px; font-size: 16px; }
       #aide ol { margin: 0 0 6px; padding-left: 20px; }
       #aide li { margin-bottom: 5px; }
-      #aide p { margin: 0; font-size: 13px; opacity: .9; }
+      #aide p { margin: 0 0 6px; font-size: 13px; opacity: .9; }
       .lecteur { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
       [hidden] { display: none !important; }
     </style>
@@ -46,24 +46,25 @@
           aria-label="Vue de côté : des lampes ou un faisceau de lumière, un écran, un prisme et des filtres que l'on peut déplacer."></canvas>
         <p id="annonce" class="lecteur" aria-live="polite"></p>
         <section id="aide" aria-labelledby="aide-titre">
-          <h2 id="aide-titre">Lumières colorées, vue de côté</h2>
           <div id="aide-lampes">
+            <h2 id="aide-titre">Synthèse additive : lampes colorées</h2>
+            <p>On ajoute des lumières colorées, en partant du noir. Les faisceaux sont dessinés pâles, comme dans un peu de fumée : regarde surtout l’écran.</p>
             <ol>
               <li>Allume deux lampes et fais se superposer leurs lumières sur l’écran (déplace une lampe, ou tourne-la avec son rond blanc) : quelle couleur obtiens-tu ? Essaie les trois paires.</li>
               <li>Allume les trois lampes : quelle couleur obtiens-tu là où les trois lumières se superposent ?</li>
               <li>Ajoute l’objet opaque : de quelles couleurs sont les ombres sur l’écran ? Quelles lampes éclairent encore chaque zone ?</li>
               <li>Vérifie avec « Noms ».</li>
             </ol>
-            <p>Synthèse additive : on ajoute des lumières colorées, en partant du noir.</p>
           </div>
           <div id="aide-faisceau">
+            <h2 id="aide-titre-faisceau">Faisceau, prisme et filtres</h2>
+            <p>Simulation : l’étalement des couleurs par le prisme est exagéré pour bien le voir ; les lumières rouge, verte et bleue ne contiennent qu’une radiation, comme un laser ; les filtres sont idéaux. Oriente la lampe ou le prisme avec leur rond blanc.</p>
             <ol>
               <li>Ajoute le prisme sur le trajet de la lumière blanche : qu’observes-tu sur l’écran ? Quelle couleur est la plus déviée ?</li>
-              <li>Choisis la lumière rouge : est-elle décomposée par le prisme ?</li>
-              <li>Retire le prisme. Place un filtre devant la lumière blanche, puis deux filtres (cyan, magenta, jaune) : quelle couleur arrive sur l’écran ? Et avec les trois ?</li>
-              <li>Affiche le « Rayon lumineux » : dans l’air, la lumière va-t-elle en ligne droite ? Et quand elle entre dans le verre du prisme ?</li>
+              <li>Choisis la lumière rouge (une seule radiation) : est-elle décomposée par le prisme ? Puis, en lumière blanche avec le prisme, ajoute le filtre jaune : quelles couleurs restent ?</li>
+              <li>Retire le prisme. Synthèse soustractive : chaque filtre absorbe une partie de la lumière blanche. Place les filtres cyan, magenta, jaune deux à deux, puis les trois : quelle couleur arrive sur l’écran ?</li>
+              <li>Affiche le « Rayon lumineux » : va-t-il en ligne droite dans l’air ? Dans le verre ? À quels endroits change-t-il de direction ?</li>
             </ol>
-            <p>Oriente la lampe ou le prisme avec leur rond blanc. Simulation : l’étalement des couleurs par le prisme est exagéré pour bien le voir ; les lumières rouge, verte et bleue ne contiennent qu’une radiation, comme un laser ; les filtres sont idéaux.</p>
           </div>
         </section>
         <div class="barres">

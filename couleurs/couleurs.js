@@ -1,5 +1,5 @@
 // LightPhysics — Couleurs (4e : lumière blanche, synthèses additive et soustractive ; 5e : rayon lumineux)
-// Version 1.0 — 14/11/2026
+// Version 1.1 — 14/11/2026
 // VERHILLE Arnaud
 // Copyleft GPL2
 //
@@ -32,7 +32,7 @@ const Couleurs = (() => {
   const ECRAN = {haut: 26, bas: 466, epaisseur: 16};
   const ECRAN_X_MAX = W - 160;                  // à droite de l'écran : la place des étiquettes
   const DEMI_CONE = 10 * Math.PI / 180;         // ouverture des projecteurs
-  const LARGEUR_FAISCEAU = 10, RAYONS_FAISCEAU = 9;
+  const LARGEUR_FAISCEAU = 4, RAYONS_FAISCEAU = 7;
   const COTE_PRISME = 130, RAYON_OBJET = 36;
   const CAUCHY_A = 1.5515, CAUCHY_B = 23750;    // n(400 nm) = 1,70 ; n(700 nm) = 1,60 (exagéré)
   const GAIN_ECRAN = 2.6, GAIN_ESPACE = 3.2;    // luminosité d'affichage du faisceau
@@ -225,11 +225,9 @@ const Couleurs = (() => {
       let t = impactBoite(ox, oy, dx, dy, CADRE), quoi = {type: 'bord'};
       const te = impactBoite(ox, oy, dx, dy, rectEcran());
       if (te < t) { t = te; quoi = {type: 'ecran'}; }
-      if (!dansVerre) {
-        for (const f of etat.filtres) {
-          const tf = impactSegment(ox, oy, dx, dy, f.x, f.y - DEMI_FILTRE, f.x, f.y + DEMI_FILTRE);
-          if (tf < t) { t = tf; quoi = {type: 'filtre', f}; }
-        }
+      for (const f of etat.filtres) {
+        const tf = impactSegment(ox, oy, dx, dy, f.x, f.y - DEMI_FILTRE, f.x, f.y + DEMI_FILTRE);
+        if (tf < t) { t = tf; quoi = {type: 'filtre', f}; }
       }
       if (sommets) {
         for (let i = 0; i < 3; i++) {
@@ -305,7 +303,11 @@ const Couleurs = (() => {
       });
     }
     const valeurs = [];
-    for (let i = 0; i < nb; i++) valeurs.push({y: ECRAN.haut + i, c: [0, 1, 2].map(k => Math.min(1, GAIN_ECRAN * cumul[k][i]))});
+    for (let i = 0; i < nb; i++) {
+      // Teinte de la lumière reçue, éclat porté vite au maximum : le bleu et le violet du spectre restent visibles.
+      const v = [0, 1, 2].map(k => cumul[k][i]), max = Math.max(...v);
+      valeurs.push({y: ECRAN.haut + i, c: max > 0 ? v.map(x => (x / max) * Math.min(1, GAIN_ECRAN * 3 * max)) : [0, 0, 0]});
+    }
     return valeurs;
   }
 
@@ -318,23 +320,26 @@ const Couleurs = (() => {
     const ux = Math.cos(F.angle), uy = Math.sin(F.angle);
     const iMin = Math.asin(indice(550) * Math.sin(Math.PI / 6));
     const rc = COTE_PRISME / Math.sqrt(3), ex = -0.225 * COTE_PRISME, ey = -0.325 * rc;
-    // Point d'entrée sur le faisceau, assez loin de la lampe pour que la lumière déviée atteigne l'écran.
-    const longueur = Math.max(80, Math.min(380, (etat.ecranX - 150 - depart.x) / Math.max(0.3, ux)));
-    const bx = depart.x + ux * longueur, by = depart.y + uy * longueur;
-    const essayer = (phi, cx, cy) => {
-      Object.assign(p, {phi, x: cx, y: cy, present: true});
-      const r = suivre(depart.x, depart.y, ux, uy, 550);
-      return r.refractions === 2 && !r.reflexions && r.fin.type === 'ecran';
+    const traverse = l => { const r = suivre(depart.x, depart.y, ux, uy, l);
+      return r.refractions === 2 && !r.reflexions && r.fin.type === 'ecran' && r.fin.y > ECRAN.haut + 40 && r.fin.y < ECRAN.bas - 40; };
+    const configurations = longueur => {
+      const bx = depart.x + ux * longueur, by = depart.y + uy * longueur;
+      // Pointe d'un côté du faisceau (déviation vers l'autre côté), ou prisme symétrique.
+      const phi = F.angle - (Math.PI / 6 - iMin), c = Math.cos(phi), sn = Math.sin(phi);
+      const cx = bx - (ex * c - ey * sn), cy = by - (ex * sn + ey * c);
+      const vx = cx - bx, vy = cy - by, along = vx * ux + vy * uy;
+      return [[phi, cx, cy], [2 * F.angle - phi + Math.PI / 3, bx + 2 * along * ux - vx, by + 2 * along * uy - vy]];
     };
-    // Pointe d'un côté du faisceau (déviation vers l'autre côté)…
-    const phi = F.angle - (Math.PI / 6 - iMin), c = Math.cos(phi), sn = Math.sin(phi);
-    const cx = bx - (ex * c - ey * sn), cy = by - (ex * sn + ey * c);
-    if (essayer(phi, cx, cy)) return;
-    // … sinon le prisme symétrique par rapport au faisceau (déviation de l'autre côté).
-    const vx = cx - bx, vy = cy - by, along = vx * ux + vy * uy;
-    const mx = bx + 2 * along * ux - vx, my = by + 2 * along * uy - vy;
-    if (essayer(2 * F.angle - phi + Math.PI / 3, mx, my)) return;
-    essayer(phi, cx, cy);
+    // Le plus loin possible de l'écran (spectre plus étalé), pourvu que le violet et le rouge l'atteignent.
+    const premier = configurations(120)[0];
+    for (let longueur = 80; longueur <= 420; longueur += 20) {
+      for (const [phi, x, y] of configurations(longueur)) {
+        if (x + COTE_PRISME / 2 > etat.ecranX - 30) continue;
+        Object.assign(p, {phi, x, y, present: true});
+        if (traverse(400) && traverse(700)) return;
+      }
+    }
+    Object.assign(p, {phi: premier[0], x: premier[1], y: premier[2], present: true});
   }
 
   // ---- Dessin ------------------------------------------------------------------
@@ -410,8 +415,8 @@ const Couleurs = (() => {
       if (!pr.allume) continue;
       const poly = polygoneProjecteur(pr);
       const g = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, 800);
-      g.addColorStop(0, css(PRIMAIRES[pr.couleur], 0.55));
-      g.addColorStop(1, css(PRIMAIRES[pr.couleur], 0.28));
+      g.addColorStop(0, css(PRIMAIRES[pr.couleur], 0.34));
+      g.addColorStop(1, css(PRIMAIRES[pr.couleur], 0.16));
       ctx.fillStyle = g;
       ctx.beginPath();
       poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
@@ -490,17 +495,35 @@ const Couleurs = (() => {
     }
   }
 
+  // Les radiations qui suivent le même chemin forment un seul rayon, de la couleur de leur somme ;
+  // à chaque séparation (prisme) ou absorption (filtre), le rayon se divise ou change de couleur.
+  // Après un prisme en lumière blanche, on ne trace que 7 radiations pour rester lisible.
+  const REPRESENTANTS = [410, 460, 490, 530, 570, 620, 680];
+  function couleurSomme(membres) {
+    const somme = [0, 1, 2].map(k => membres.reduce((a, m) => a + m.poids[k], 0));
+    const max = Math.max(...somme);
+    return max > 0 ? somme.map(v => v / max) : [0, 0, 0];
+  }
+  const memePoint = (a, b) => a && b && Math.hypot(a.x - b.x, a.y - b.y) < 0.01;
+
+  function dessinerGroupe(membres, debut) {
+    // Partie commune à partir de l'indice debut
+    let k = debut + 1;
+    while (membres.every(m => m.pts.length > k) && membres.every(m => memePoint(m.pts[k], membres[0].pts[k]))) k++;
+    trait(membres[0].pts.slice(debut, k), css(couleurSomme(membres)));
+    // Ceux qui continuent, regroupés par point suivant
+    const suite = membres.filter(m => m.pts.length > k);
+    const groupes = [];
+    for (const m of suite) {
+      const g = groupes.find(x => memePoint(x[0].pts[k], m.pts[k]));
+      if (g) g.push(m); else groupes.push([m]);
+    }
+    const choisis = groupes.length > 7 ? groupes.filter(g => g.some(m => REPRESENTANTS.includes(m.l))) : groupes;
+    for (const g of choisis) dessinerGroupe(g, k - 1);
+  }
+
   function dessinerRayonModele(trace) {
-    const choisis = trace.length > 1 ? trace.filter(t => [410, 460, 490, 530, 570, 620, 680].includes(t.l)) : trace;
-    if (choisis.length === 1) { trait(choisis[0].centre.points, css(teinte(choisis[0].l))); return; }
-    // Partie commune à toutes les couleurs (avant la première séparation)
-    const lignes = choisis.map(t => t.centre.points);
-    let commun = 0;
-    while (commun < Math.min(...lignes.map(l => l.length)) &&
-           lignes.every(l => Math.hypot(l[commun].x - lignes[0][commun].x, l[commun].y - lignes[0][commun].y) < 0.01)) commun++;
-    if (commun >= lignes[0].length) { trait(lignes[0], '#ffffff'); return; }   // jamais séparées : rayon blanc
-    for (const t of choisis) trait(t.centre.points.slice(commun - 1), css(teinte(t.l)));
-    trait(lignes[0].slice(0, commun), '#ffffff');
+    dessinerGroupe(trace.map(t => ({l: t.l, poids: t.poids, pts: t.centre.points})), 0);
   }
 
   // ---- Étiquettes (« Noms ») -----------------------------------------------------
@@ -568,14 +591,27 @@ const Couleurs = (() => {
     }
   }
 
-  // Plages de même couleur sur l'écran (au moins 6 px).
-  function plagesCouleur(valeurs) {
+  // Couleurs reçues par l'écran en mode faisceau, d'après les rayons qui l'atteignent réellement.
+  // Sans prisme, toutes les radiations transmises arrivent au même endroit : une seule tache, de la
+  // couleur de leur somme. Avec le prisme, on lit les plages de l'écran (au moins 3 px).
+  function couleursFaisceau(trace, valeurs) {
+    const arrivees = trace.filter(t => t.centre.fin.type === 'ecran');
+    if (!arrivees.length) return {aucune: true, taches: []};
+    if (!etat.prisme.present) {
+      const c = quantifier(couleurSomme(arrivees));
+      return {aucune: false, taches: [{nom: NOMS[c.join(',')], c, y: arrivees.reduce((a, t) => a + t.centre.fin.y, 0) / arrivees.length}]};
+    }
+    return {aucune: false, taches: plagesCouleur(valeurs, 3).filter(p => p.nom !== 'Noir').map(p => ({nom: p.nom, c: p.c, y: (p.y0 + p.y1) / 2}))};
+  }
+
+  // Plages de même couleur sur l'écran (au moins « mini » px).
+  function plagesCouleur(valeurs, mini = 6) {
     const res = [];
     let debut = 0;
     for (let i = 1; i <= valeurs.length; i++) {
       const fin = i === valeurs.length || nomCouleur(valeurs[i].c) !== nomCouleur(valeurs[debut].c);
       if (fin) {
-        if (i - debut >= 6) res.push({nom: nomCouleur(valeurs[debut].c), y0: valeurs[debut].y, y1: valeurs[i - 1].y, c: quantifier(valeurs[debut].c)});
+        if (i - debut >= mini) res.push({nom: nomCouleur(valeurs[debut].c), y0: valeurs[debut].y, y1: valeurs[i - 1].y, c: quantifier(valeurs[debut].c)});
         debut = i;
       }
     }
@@ -596,21 +632,27 @@ const Couleurs = (() => {
                           ...[0, -30, 30, -60, 60, -90, 90].map(d => [gauche, y + d, -1])];
     poser('Écran', [[e.x1, e.y0 + 6]], [[droite, e.y0 + 14, 1], [droite, e.y0 + 44, 1]]);
 
-    if (etat.mode === 'faisceau' && etat.prisme.present && etat.faisceau.lumiere === 'blanche') {
-      // Spectre : les deux extrémités, avec la plus déviée
-      const F = etat.faisceau, ux = Math.cos(F.angle), uy = Math.sin(F.angle);
-      const bout = l => { const t = trace.find(x => x.l === l); return t && t.centre.fin.type === 'ecran' ? t.centre : null; };
-      const violet = bout(400), rouge = bout(700);
-      if (violet && rouge && Math.abs(violet.fin.y - rouge.fin.y) > 8) {
-        const dev = c => Math.acos(Math.max(-1, Math.min(1, c.direction.x * ux + c.direction.y * uy)));
-        const plusViolet = dev(violet) > dev(rouge);
-        // Celle du haut part vers le haut, celle du bas vers le bas : les traits ne se croisent pas.
-        const versHaut = y => [...[0, -30, -60, -90, -120].map(d => [droite, y + d, 1]), ...[0, -30, -60, -90, -120].map(d => [gauche, y + d, -1])];
-        const versBas = y => [...[0, 30, 60, 90, 120].map(d => [droite, y + d, 1]), ...[0, 30, 60, 90, 120].map(d => [gauche, y + d, -1])];
-        const violetEnBas = violet.fin.y > rouge.fin.y;
-        poser('Violet : ' + (plusViolet ? 'plus dévié' : 'moins dévié'), [[e.x0 + 2, violet.fin.y]], (violetEnBas ? versBas : versHaut)(violet.fin.y), [0.3, 0, 1]);
-        poser('Rouge : ' + (plusViolet ? 'moins dévié' : 'plus dévié'), [[e.x0 + 2, rouge.fin.y]], (violetEnBas ? versHaut : versBas)(rouge.fin.y), [1, 0, 0]);
+    const bout = l => { const t = trace && trace.find(x => x.l === l); return t && t.centre.fin.type === 'ecran' ? t.centre : null; };
+    const violet = bout(400), rouge = bout(700);
+    if (etat.mode === 'faisceau' && etat.prisme.present && etat.faisceau.lumiere === 'blanche' &&
+        violet && rouge && Math.abs(violet.fin.y - rouge.fin.y) > 8) {
+      // Spectre : on nomme ses deux bouts ; à l'élève de comparer les déviations.
+      const versHaut = y => [...[0, -30, -60, -90].map(d => [droite, y + d, 1]), ...[0, -30, -60, -90].map(d => [gauche, y + d, -1])];
+      const versBas = y => [...[0, 30, 60, 90].map(d => [droite, y + d, 1]), ...[0, 30, 60, 90].map(d => [gauche, y + d, -1])];
+      const violetEnBas = violet.fin.y > rouge.fin.y;
+      poser('Violet', [[e.x0 + 2, violet.fin.y]], (violetEnBas ? versBas : versHaut)(violet.fin.y), [0.3, 0, 1]);
+      poser('Rouge', [[e.x0 + 2, rouge.fin.y]], (violetEnBas ? versHaut : versBas)(rouge.fin.y), [1, 0, 0]);
+    } else if (etat.mode === 'faisceau') {
+      const {aucune, taches} = couleursFaisceau(trace, valeurs);
+      if (aucune) {
+        // Toute la lumière est absorbée (ou rate l'écran) : là où arriverait le faisceau sans filtre
+        const F = etat.faisceau, d = poignee(F, 26), garde = etat.filtres;
+        etat.filtres = [];
+        const r = suivre(d.x, d.y, Math.cos(F.angle), Math.sin(F.angle), 550);
+        etat.filtres = garde;
+        if (r.fin.type === 'ecran' && garde.length) poser('Noir : aucune lumière', [[e.x0 + 2, r.fin.y]], aDroite(r.fin.y), [0, 0, 0]);
       }
+      for (const t of taches) poser(t.nom, [[e.x0 + 2, t.y]], aDroite(t.y), t.c);
     } else {
       // Couleurs reçues par l'écran (le noir n'est nommé que s'il est entouré de lumière : une ombre)
       const plages = plagesCouleur(valeurs);
@@ -656,6 +698,8 @@ const Couleurs = (() => {
     if (etat.noms) dessinerNoms(valeurs, trace, occupe);
     resultat = {
       plages: plagesCouleur(valeurs).map(p => ({nom: p.nom, y0: p.y0, y1: p.y1})),
+      recues: etat.mode === 'faisceau' ? couleursFaisceau(trace, valeurs).taches.map(t => t.nom)
+        : plagesCouleur(valeurs).map(p => p.nom).filter(n => n !== 'Noir'),
       etiquettes: occupe.slice(n0),
       bouts: trace && trace.length > 1 ? Object.fromEntries([400, 550, 700].map(l => { const t = trace.find(x => x.l === l); return [l, t.centre.fin.type === 'ecran' ? t.centre.fin.y : null]; })) : null,
     };
@@ -666,10 +710,11 @@ const Couleurs = (() => {
   function annoncer() {
     if (!ui.annonce || prise) return;
     const texte = etat.mode === 'lampes'
-      ? 'Lampes allumées : ' + (etat.projecteurs.filter(p => p.allume).map(p => p.couleur).join(', ') || 'aucune') + '.'
+      ? 'Lampes allumées : ' + (etat.projecteurs.filter(p => p.allume).map(p => p.couleur).join(', ') || 'aucune') + '.' +
+        (etat.noms ? ' Sur l’écran : ' + (resultat.recues.map(n => n.toLowerCase()).join(', ') || 'aucune lumière') + '.' : '')
       : 'Lumière ' + etat.faisceau.lumiere + (etat.prisme.present ? ', prisme' : '') +
         (etat.filtres.length ? ', filtres ' + etat.filtres.map(f => f.couleur).join(' et ') : '') + '.' +
-        (etat.noms ? ' Sur l’écran : ' + (resultat.plages.filter(p => p.nom !== 'Noir').map(p => p.nom.toLowerCase()).join(', ') || 'rien') + '.' : '');
+        (etat.noms ? ' Sur l’écran : ' + (resultat.recues.map(n => n.toLowerCase()).join(', ') || 'aucune lumière') + '.' : '');
     if (texte !== annonce) { annonce = texte; ui.annonce.textContent = texte; }
   }
 
@@ -695,15 +740,15 @@ const Couleurs = (() => {
   function quoiSous(p) {
     const pres = (q, r) => Math.hypot(p.x - q.x, p.y - q.y) <= r;
     if (etat.mode === 'lampes') {
+      for (const pr of etat.projecteurs) if (pres(pr, 24)) return {quoi: 'deplacer', cible: pr};
       for (const pr of etat.projecteurs) if (pres(poignee(pr), 22)) return {quoi: 'orienter', cible: pr};
       if (etat.objet.present && pres(etat.objet, RAYON_OBJET + 10)) return {quoi: 'deplacer', cible: etat.objet};
-      for (const pr of etat.projecteurs) if (pres(pr, 30)) return {quoi: 'deplacer', cible: pr};
     } else {
+      if (pres(etat.faisceau, 24)) return {quoi: 'deplacer', cible: etat.faisceau};
       if (pres(poignee(etat.faisceau), 22)) return {quoi: 'orienter', cible: etat.faisceau};
       if (etat.prisme.present && pres(poigneePrisme(), 22)) return {quoi: 'tourner', cible: etat.prisme};
       for (const f of etat.filtres) if (Math.abs(p.x - f.x) <= 20 && Math.abs(p.y - f.y) <= DEMI_FILTRE + 8) return {quoi: 'deplacer', cible: f};
       if (etat.prisme.present && dansTriangle(p.x, p.y, sommetsPrisme())) return {quoi: 'deplacer', cible: etat.prisme};
-      if (pres(etat.faisceau, 30)) return {quoi: 'deplacer', cible: etat.faisceau};
     }
     if (Math.abs(p.x - (etat.ecranX + ECRAN.epaisseur / 2)) <= 26 && p.y >= ECRAN.haut - 16 && p.y <= ECRAN.bas + 16) return {quoi: 'ecran'};
     return null;
@@ -712,7 +757,7 @@ const Couleurs = (() => {
   function appliquer(p) {
     const {quoi, cible, dx, dy} = prise;
     if (quoi === 'deplacer') {
-      const b = borner(p.x + dx, p.y + dy, cible === etat.prisme ? COTE_PRISME / 2 : 20);
+      const b = borner(p.x + dx, p.y + dy, cible === etat.prisme ? COTE_PRISME / Math.sqrt(3) + 40 : 20);
       cible.x = b.x; cible.y = b.y;
     } else if (quoi === 'orienter') {
       cible.angle = Math.atan2(p.y - cible.y, p.x - cible.x);
@@ -801,6 +846,7 @@ const Couleurs = (() => {
     ui.aide.hidden = !etat.aide;
     ui.aideLampes.hidden = etat.mode !== 'lampes';
     ui.aideFaisceau.hidden = etat.mode !== 'faisceau';
+    ui.aide.setAttribute('aria-labelledby', etat.mode === 'lampes' ? 'aide-titre' : 'aide-titre-faisceau');
   }
 
   function creerInterface() {
