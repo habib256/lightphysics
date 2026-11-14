@@ -32,6 +32,14 @@ function pushDioptre(x1, y1, x2, y2) {
     dioptreCount++;
 }
 
+function pushCercle(cx, cy, r) {
+    if (dioptreCount >= dioptres.length) {
+        dioptres.push(new Dioptre(cx, cy, cx, cy));
+    }
+    dioptres[dioptreCount].setCercle(cx, cy, r);
+    dioptreCount++;
+}
+
 function drawLights() {
     blendMode(ADD);
     for (const light of lights) {

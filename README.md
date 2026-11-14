@@ -42,3 +42,9 @@ L'app illustre le chapitre « Masse et poids » (4e) : le poids d'un objet dépe
 **Au doigt** : boutons de 58 px (45 px une fois l'illustration réduite à 78 % dans le cours) ; un objet tenu est lâché dès qu'aucun doigt ne reste sur la simulation, même si un autre doigt touche un bouton. Dans Chrome, toucher un bouton pendant qu'un autre doigt tient un objet ne déclenche pas le bouton (le navigateur ne produit un « clic » que pour un doigt seul) : choisir l'astre d'abord, puis attraper l'objet.
 
 `Pesanteur.etat()` dans la console donne l'astre, g, la pause et la fiche de l'objet choisi. Aucune ressource externe, aucune donnée collectée.
+
+## Performances (14/11/2026)
+
+- **Chargement : 6,7 Mo → 1,6 Mo** (43 → 27 requêtes) : les 7 fonds `graphics/mur0*.jpg` (2,4 Mo) n'étaient jamais affichés et ne sont plus chargés par `sketch.js` (ils restent pour `breakout.js`) ; images des ballons réduites à 256 px (la balle de tennis faisait 1 806 px et 2,1 Mo pour être dessinée sur 100 px au plus) ; `crate02.png`, opaque, devient `crate02.jpg` (315 → 51 ko) ; `p5.sound` et `paddle.js`, inutilisés par `index.html`, ne sont plus chargés (`index_debug.html` les garde).
+- **Ombres des ballons** : un ballon arrête la lumière comme un **cercle exact** (un test d'intersection rayon-cercle) au lieu d'un polygone de 30 segments. Scène de 15 objets : 272 → 40 surfaces, calcul des rayons −37 %, image complète −52 % (Chrome, processeur ralenti 4 fois). Les contours de lumière sont identiques à 0,24 px près pour 99 % des 1 800 rayons ; les 2 rayons qui changent rasent le bord d'un ballon et sont maintenant arrêtés, comme ils doivent l'être.
+- **Lumière** : polygone éclairé tracé directement sur le canvas, couleurs du dégradé préparées une seule fois.

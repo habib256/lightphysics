@@ -33,7 +33,7 @@ let spatialGrid;
 function preload() {
   const ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
   boxesImg.push(loadImage('graphics/crate01.jpg'));
-  boxesImg.push(loadImage('graphics/crate02.png'));
+  boxesImg.push(loadImage('graphics/crate02.jpg'));
   ballImages.forEach(img => {
     ballsImg.push(loadImage(`graphics/${img}`));
   });

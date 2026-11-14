@@ -22,7 +22,6 @@ let balls = [];
 let ballsImg = [];
 let lights = [];
 let dioptres = [];
-let backgrounds = [];
 let mouseConstraint;
 let runner;
 let spatialGrid;
@@ -30,13 +29,10 @@ let spatialGrid;
 function preload() {
   const ballImages = ['ballon.png', 'basket.png', 'smiley.png', 'tennis.png'];
   boxesImg.push(loadImage('graphics/crate01.jpg'));
-  boxesImg.push(loadImage('graphics/crate02.png'));
+  boxesImg.push(loadImage('graphics/crate02.jpg'));
   ballImages.forEach(img => {
     ballsImg.push(loadImage(`graphics/${img}`));
   });
-  for (let i = 1; i <= 7; i++) {
-    backgrounds.push(loadImage(`graphics/mur0${i}.jpg`));
-  }
 }
 
 function setup() {

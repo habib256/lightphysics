@@ -47,91 +47,75 @@ class Ray {
   }
 
   calculateIntersection(dioptres, dioptreCount) {
-    let record = Infinity;
-    const posX = this.pos.x;
-    const posY = this.pos.y;
-    const x3 = posX;
-    const y3 = posY;
-    const x4 = posX + this.dir.x;
-    const y4 = posY + this.dir.y;
     const count = dioptreCount !== undefined ? dioptreCount : dioptres.length;
-
-    this.end.x = posX;
-    this.end.y = posY;
-    this.hitDioptreIndex = -1;
-
+    this._commencer();
     for (let i = 0; i < count; i++) {
-      const surface = dioptres[i];
-      const x1 = surface.ax;
-      const y1 = surface.ay;
-      const x2 = surface.bx;
-      const y2 = surface.by;
-
-      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-      if (Math.abs(den) < 1e-10) {
-        continue;
-      }
-
-      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-      if (t > 0 && t < 1 && u > 0) {
-        const ptX = x1 + t * (x2 - x1);
-        const ptY = y1 + t * (y2 - y1);
-        const dx = ptX - posX;
-        const dy = ptY - posY;
-        const dSq = dx * dx + dy * dy;
-        if (dSq < record) {
-          record = dSq;
-          this.end.x = ptX;
-          this.end.y = ptY;
-          this.hitDioptreIndex = i;
-        }
-      }
+      this._tester(dioptres[i], i);
     }
   }
 
   calculateIntersectionWithGrid(dioptres, grid) {
-    let record = Infinity;
+    this._commencer();
+    const indices = grid.getDioptresForRay(this.pos.x, this.pos.y, this.dir.x, this.dir.y);
+    for (let i = 0; i < indices.length; i++) {
+      this._tester(dioptres[indices[i]], indices[i]);
+    }
+  }
+
+  _commencer() {
+    this._record = Infinity;
+    this.end.x = this.pos.x;
+    this.end.y = this.pos.y;
+    this.hitDioptreIndex = -1;
+  }
+
+  // Garde le point d'impact le plus proche de la source.
+  _tester(surface, index) {
     const posX = this.pos.x;
     const posY = this.pos.y;
-    const x3 = posX;
-    const y3 = posY;
-    const x4 = posX + this.dir.x;
-    const y4 = posY + this.dir.y;
+    const dirX = this.dir.x;
+    const dirY = this.dir.y;
+    let ptX, ptY;
 
-    this.end.x = posX;
-    this.end.y = posY;
-    this.hitDioptreIndex = -1;
-
-    const indices = grid.getDioptresForRay(posX, posY, this.dir.x, this.dir.y);
-
-    for (let i = 0; i < indices.length; i++) {
-      const surface = dioptres[indices[i]];
+    if (surface.r > 0) {
+      // Cercle : P = O + t·d avec |P − C| = r, on garde la plus petite racine t > 0
+      // (la sortie du cercle si la source est à l'intérieur, comme avec les segments).
+      const fx = posX - surface.ax;
+      const fy = posY - surface.ay;
+      const a = dirX * dirX + dirY * dirY;
+      const b = fx * dirX + fy * dirY;
+      const c = fx * fx + fy * fy - surface.r * surface.r;
+      const disc = b * b - a * c;
+      if (disc < 0) return;
+      const racine = Math.sqrt(disc);
+      let t = (-b - racine) / a;
+      if (t <= 0) t = (-b + racine) / a;
+      if (t <= 0) return;
+      ptX = posX + t * dirX;
+      ptY = posY + t * dirY;
+    } else {
       const x1 = surface.ax;
       const y1 = surface.ay;
       const x2 = surface.bx;
       const y2 = surface.by;
+      // Droite du rayon : (x3, y3) = source, (x4, y4) = source + direction
+      const den = (x1 - x2) * (-dirY) - (y1 - y2) * (-dirX);
+      if (Math.abs(den) < 1e-10) return;
+      const t = ((x1 - posX) * (-dirY) - (y1 - posY) * (-dirX)) / den;
+      const u = -((x1 - x2) * (y1 - posY) - (y1 - y2) * (x1 - posX)) / den;
+      if (!(t > 0 && t < 1 && u > 0)) return;
+      ptX = x1 + t * (x2 - x1);
+      ptY = y1 + t * (y2 - y1);
+    }
 
-      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-      if (Math.abs(den) < 1e-10) {
-        continue;
-      }
-
-      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-      if (t > 0 && t < 1 && u > 0) {
-        const ptX = x1 + t * (x2 - x1);
-        const ptY = y1 + t * (y2 - y1);
-        const dx = ptX - posX;
-        const dy = ptY - posY;
-        const dSq = dx * dx + dy * dy;
-        if (dSq < record) {
-          record = dSq;
-          this.end.x = ptX;
-          this.end.y = ptY;
-          this.hitDioptreIndex = indices[i];
-        }
-      }
+    const dx = ptX - posX;
+    const dy = ptY - posY;
+    const dSq = dx * dx + dy * dy;
+    if (dSq < this._record) {
+      this._record = dSq;
+      this.end.x = ptX;
+      this.end.y = ptY;
+      this.hitDioptreIndex = index;
     }
   }
 }

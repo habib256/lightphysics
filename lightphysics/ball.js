@@ -19,22 +19,9 @@ class Ball extends PhysicsObject {
         return this.r;
     }
 
+    // Le ballon arrête la lumière comme un cercle exact (sa rotation ne change rien à son ombre).
     pushDioptres() {
-        const angle = this.body.angle;
-        const cx = this.body.position.x;
-        const cy = this.body.position.y;
-
-        const cosA = Math.cos(-angle);
-        const sinA = Math.sin(-angle);
-
-        const angleStep = 2 * Math.PI / CONFIG.BALL_SEGMENTS;
-        for (let i = 0; i < CONFIG.BALL_SEGMENTS; i++) {
-            const angle1 = i * angleStep;
-            const angle2 = ((i + 1) % CONFIG.BALL_SEGMENTS) * angleStep;
-            const pt1 = rotatePt(cx + this.r * Math.cos(angle1), cy + this.r * Math.sin(angle1), cx, cy, cosA, sinA);
-            const pt2 = rotatePt(cx + this.r * Math.cos(angle2), cy + this.r * Math.sin(angle2), cx, cy, cosA, sinA);
-            pushDioptre(pt1.x, pt1.y, pt2.x, pt2.y);
-        }
+        pushCercle(this.body.position.x, this.body.position.y, this.r);
     }
 
     show() {
