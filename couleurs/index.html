@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LightPhysics — Lumières colorées et prisme</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      body { display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+        font: 15px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #fff;
+        -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+      #cadre { position: relative; overflow: hidden; }
+      #scene { position: absolute; left: 0; top: 0; width: 800px; height: 600px; transform-origin: 0 0; }
+      /* Au doigt : le geste sur la scène déplace ou oriente les objets ; pas de défilement, de zoom ni de menu. */
+      canvas { display: block; width: 800px; height: 600px; touch-action: none; -webkit-touch-callout: none; cursor: default; }
+      .barres { position: absolute; left: 8px; right: 8px; bottom: 6px; display: flex; flex-direction: column; gap: 5px; }
+      .rangee { display: flex; gap: 5px; }
+      .rangee > * { flex: 1 1 0; min-width: 0; }
+      .rangee .large { flex: 1.6 1 0; }
+      .groupe { display: flex; gap: 4px; }
+      .groupe > button { flex: 1 1 0; min-width: 0; }
+      button { min-height: 50px; margin: 0; padding: 0 3px; border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.45); background: rgba(14,18,26,.9); color: #fff;
+        font: inherit; font-size: 14px; font-weight: 600; line-height: 1.1; cursor: pointer; touch-action: manipulation; }
+      button:focus-visible { outline: 3px solid #ffd166; outline-offset: 1px; }
+      button[aria-pressed="true"], button[aria-expanded="true"] { background: #ffd166; color: #111; border-color: #ffd166; }
+      .groupe > button { font-size: 13px; }
+      #b-prisme { flex: 0.75 1 0; }
+      .pastille { display: inline-block; width: 11px; height: 11px; margin-right: 4px; border: 1px solid #fff; vertical-align: -1px; }
+      .legende { flex: 0 0 auto; align-self: center; font-size: 12px; font-weight: 700; opacity: .8; writing-mode: vertical-rl; transform: rotate(180deg); }
+      #aide { position: absolute; left: 168px; top: 8px; width: 456px; max-height: 400px; overflow-y: auto; box-sizing: border-box;
+        margin: 0; padding: 8px 12px; border-radius: 10px; background: rgba(14,18,26,.94); border: 1px solid rgba(255,255,255,.3); }
+      #aide h2 { margin: 0 0 6px; font-size: 16px; }
+      #aide ol { margin: 0 0 6px; padding-left: 20px; }
+      #aide li { margin-bottom: 5px; }
+      #aide p { margin: 0; font-size: 13px; opacity: .9; }
+      .lecteur { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="cadre">
+      <div id="scene">
+        <canvas id="couleurs" width="800" height="600" role="img"
+          aria-label="Vue de côté : des lampes ou un faisceau de lumière, un écran, un prisme et des filtres que l'on peut déplacer."></canvas>
+        <p id="annonce" class="lecteur" aria-live="polite"></p>
+        <section id="aide" aria-labelledby="aide-titre">
+          <h2 id="aide-titre">Lumières colorées, vue de côté</h2>
+          <div id="aide-lampes">
+            <ol>
+              <li>Allume deux lampes et fais se superposer leurs lumières sur l’écran (déplace une lampe, ou tourne-la avec son rond blanc) : quelle couleur obtiens-tu ? Essaie les trois paires.</li>
+              <li>Allume les trois lampes : quelle couleur obtiens-tu là où les trois lumières se superposent ?</li>
+              <li>Ajoute l’objet opaque : de quelles couleurs sont les ombres sur l’écran ? Quelles lampes éclairent encore chaque zone ?</li>
+              <li>Vérifie avec « Noms ».</li>
+            </ol>
+            <p>Synthèse additive : on ajoute des lumières colorées, en partant du noir.</p>
+          </div>
+          <div id="aide-faisceau">
+            <ol>
+              <li>Ajoute le prisme sur le trajet de la lumière blanche : qu’observes-tu sur l’écran ? Quelle couleur est la plus déviée ?</li>
+              <li>Choisis la lumière rouge : est-elle décomposée par le prisme ?</li>
+              <li>Retire le prisme. Place un filtre devant la lumière blanche, puis deux filtres (cyan, magenta, jaune) : quelle couleur arrive sur l’écran ? Et avec les trois ?</li>
+              <li>Affiche le « Rayon lumineux » : dans l’air, la lumière va-t-elle en ligne droite ? Et quand elle entre dans le verre du prisme ?</li>
+            </ol>
+            <p>Oriente la lampe ou le prisme avec leur rond blanc. Simulation : l’étalement des couleurs par le prisme est exagéré pour bien le voir ; les lumières rouge, verte et bleue ne contiennent qu’une radiation, comme un laser ; les filtres sont idéaux.</p>
+          </div>
+        </section>
+        <div class="barres">
+          <div class="rangee">
+            <button id="b-mode-lampes" class="large" type="button">Lampes colorées</button>
+            <button id="b-mode-faisceau" class="large" type="button">Faisceau et prisme</button>
+            <button id="b-rayon" type="button">Rayon<br />lumineux</button>
+            <button id="b-noms" type="button">Noms</button>
+            <button id="b-aide" type="button" aria-controls="aide">Aide</button>
+          </div>
+          <div class="rangee" id="barre-lampes">
+            <div class="groupe" role="group" aria-label="Lampes">
+              <button id="b-lampe-rouge" type="button"><span class="pastille" style="background:#f00"></span>Lampe<br />rouge</button>
+              <button id="b-lampe-vert" type="button"><span class="pastille" style="background:#0f0"></span>Lampe<br />verte</button>
+              <button id="b-lampe-bleu" type="button"><span class="pastille" style="background:#00f"></span>Lampe<br />bleue</button>
+            </div>
+            <button id="b-objet" type="button">Objet<br />opaque</button>
+          </div>
+          <div class="rangee" id="barre-faisceau">
+            <span class="legende" aria-hidden="true">Lumière</span>
+            <div class="groupe large" role="group" aria-label="Lumière">
+              <button id="b-lumiere-blanche" type="button"><span class="pastille" style="background:#fff"></span>Blanche</button>
+              <button id="b-lumiere-rouge" type="button"><span class="pastille" style="background:#f00"></span>Rouge</button>
+              <button id="b-lumiere-verte" type="button"><span class="pastille" style="background:#0f0"></span>Verte</button>
+              <button id="b-lumiere-bleue" type="button"><span class="pastille" style="background:#00f"></span>Bleue</button>
+            </div>
+            <button id="b-prisme" type="button">Prisme</button>
+            <span class="legende" aria-hidden="true">Filtres</span>
+            <div class="groupe large" role="group" aria-label="Filtres" style="flex-grow:2.4">
+              <button id="b-filtre-cyan" type="button"><span class="pastille" style="background:#0ff"></span>Cyan</button>
+              <button id="b-filtre-magenta" type="button"><span class="pastille" style="background:#f0f"></span>Ma&shy;genta</button>
+              <button id="b-filtre-jaune" type="button"><span class="pastille" style="background:#ff0"></span>Jaune</button>
+              <button id="b-filtre-rouge" type="button"><span class="pastille" style="background:#f00"></span>Rouge</button>
+              <button id="b-filtre-vert" type="button"><span class="pastille" style="background:#0f0"></span>Vert</button>
+              <button id="b-filtre-bleu" type="button"><span class="pastille" style="background:#00f"></span>Bleu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="couleurs.js"></script>
+  </body>
+</html>
