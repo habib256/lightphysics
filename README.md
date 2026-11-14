@@ -43,6 +43,17 @@ L'app illustre le chapitre « Masse et poids » (4e) : le poids d'un objet dépe
 
 `Pesanteur.etat()` dans la console donne l'astre, g, la pause et la fiche de l'objet choisi. Aucune ressource externe, aucune donnée collectée.
 
+## Mode « Ombres » (illustration du cours de 6e, signaux et optique)
+
+`ombres/index.html` : vue de côté, comme sur un schéma, d'une source de lumière, d'un objet opaque (ballon ou caisse) et d'un écran, que l'on fait glisser au doigt ou à la souris. Écrit en Canvas 2D, sans p5 ni Matter.js (environ 40 ko) ; rien n'est recalculé tant que rien ne bouge.
+
+- **Source ponctuelle ou étendue** (disque de 80 px de diamètre) : la pénombre n'apparaît qu'avec la source étendue.
+- **Écran** : chaque point de sa face reçoit la fraction de la source qu'il voit sans que l'objet la cache (0 = ombre portée, entre 0 et 1 = pénombre). **Objet** : le côté opposé à la source reste sombre (ombre propre).
+- **Rayons lumineux** : les rayons qui frôlent l'objet (tangentes communes à la source et à l'objet) ; en trait plein les limites de l'ombre, en pointillés celles de la pénombre.
+- **Noms** : étiquettes Source de lumière, Objet opaque, Ombre propre, Ombre portée, Pénombre, Écran, pour vérifier son vocabulaire après avoir cherché (consignes dans l'aide).
+- Vérifié : la taille de l'ombre portée mesurée sur l'écran coïncide à 1 px près avec le calcul par Thalès et avec les rayons tangents, pour la source ponctuelle et pour la source étendue (ombre et pénombre).
+- `Ombres.etat()` dans la console donne les positions et les plages d'ombre et de pénombre sur l'écran. Aucune ressource externe, aucune donnée collectée.
+
 ## Performances (14/11/2026)
 
 - **Chargement : 6,7 Mo → 1,6 Mo** (43 → 27 requêtes) : les 7 fonds `graphics/mur0*.jpg` (2,4 Mo) n'étaient jamais affichés et ne sont plus chargés par `sketch.js` (ils restent pour `breakout.js`) ; images des ballons réduites à 256 px (la balle de tennis faisait 1 806 px et 2,1 Mo pour être dessinée sur 100 px au plus) ; `crate02.png`, opaque, devient `crate02.jpg` (315 → 51 ko) ; `p5.sound` et `paddle.js`, inutilisés par `index.html`, ne sont plus chargés (`index_debug.html` les garde).

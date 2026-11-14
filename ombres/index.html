@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LightPhysics — Ombre et pénombre</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      body { display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+        font: 15px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #fff;
+        -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+      #cadre { position: relative; overflow: hidden; }
+      #scene { position: absolute; left: 0; top: 0; width: 800px; height: 600px; transform-origin: 0 0; }
+      /* Au doigt : le geste sur la scène déplace la source, l'objet ou l'écran,
+         il ne fait ni défiler, ni zoomer, ni ouvrir de menu. */
+      canvas { display: block; width: 800px; height: 600px; touch-action: none; -webkit-touch-callout: none; cursor: default; }
+      .barre { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+      .groupe { display: flex; gap: 4px; flex: 2 1 0; }
+      .barre > button { flex: 1 1 0; }
+      .groupe button { flex: 1 1 0; }
+      button { min-height: 58px; min-width: 0; margin: 0; padding: 0 4px; border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.45); background: rgba(14,18,26,.88); color: #fff;
+        font: inherit; font-size: 15px; font-weight: 600; line-height: 1.1; cursor: pointer; touch-action: manipulation; }
+      button:focus-visible { outline: 3px solid #ffd166; outline-offset: 1px; }
+      button[aria-pressed="true"], button[aria-expanded="true"] { background: #ffd166; color: #111; border-color: #ffd166; }
+      /* Bandeau d'aide en haut : la source, l'objet et l'écran restent visibles dessous. */
+      #aide { position: absolute; left: 8px; top: 8px; width: 640px; max-height: 236px; overflow-y: auto; box-sizing: border-box;
+        margin: 0; padding: 8px 12px; border-radius: 10px; background: rgba(14,18,26,.92); border: 1px solid rgba(255,255,255,.3); }
+      #aide h2 { margin: 0 0 6px; font-size: 16px; }
+      #aide ol { margin: 0 0 6px; padding-left: 20px; columns: 2; column-gap: 26px; }
+      #aide li { margin-bottom: 5px; break-inside: avoid; }
+      #aide p { margin: 0; font-size: 14px; opacity: .9; }
+      [hidden] { display: none !important; }
+      .lecteur { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <div id="cadre">
+      <div id="scene">
+        <canvas id="ombres" width="800" height="600" role="img"
+          aria-label="Vue de côté : une source de lumière, un objet opaque et un écran. Fais glisser la source, l'objet ou l'écran."></canvas>
+        <p id="annonce" class="lecteur" aria-live="polite"></p>
+        <section id="aide" aria-labelledby="aide-titre">
+          <h2 id="aide-titre">Ombre et lumière, vue de côté</h2>
+          <ol>
+            <li>Fais glisser la source, l’objet ou l’écran. Où se forme l’ombre portée ? Quelle partie de l’objet reste sombre ?</li>
+            <li>Rapproche l’objet de la source, puis de l’écran : que devient la taille de l’ombre portée ?</li>
+            <li>Choisis « Source étendue » : que vois-tu apparaître au bord de l’ombre portée ?</li>
+            <li>Affiche les « Rayons lumineux » : où arrivent sur l’écran les rayons qui frôlent l’objet ? Que montre ce tracé sur le trajet de la lumière ?</li>
+            <li>Vérifie ton vocabulaire avec « Noms ».</li>
+          </ol>
+          <p>Schéma vu de côté : les zones claires montrent où arrive la lumière. Source ponctuelle : très petite ; source étendue : large. Touche la scène pour fermer cette aide.</p>
+        </section>
+        <div class="barre">
+          <div class="groupe" role="group" aria-label="Source de lumière">
+            <button id="b-ponctuelle" type="button">Source<br />ponctuelle</button>
+            <button id="b-etendue" type="button">Source<br />étendue</button>
+          </div>
+          <div class="groupe" role="group" aria-label="Objet opaque">
+            <button id="b-ballon" type="button">Ballon</button>
+            <button id="b-caisse" type="button">Caisse</button>
+          </div>
+          <button id="b-rayons" type="button">Rayons<br />lumineux</button>
+          <button id="b-noms" type="button">Noms</button>
+          <button id="b-aide" type="button" aria-controls="aide">Aide</button>
+        </div>
+      </div>
+    </div>
+    <script src="ombres.js"></script>
+  </body>
+</html>
