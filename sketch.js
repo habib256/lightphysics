@@ -36,7 +36,9 @@ function preload() {
 }
 
 function setup() {
-  const rendu = createCanvas(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  // Le monde prend les proportions de la fenêtre (lightphysics/ecran.js).
+  const depart = Ecran.calculerMonde();
+  const rendu = createCanvas(depart.w, depart.h);
 
   engine = Engine.create();
   world = engine.world;
@@ -49,29 +51,57 @@ function setup() {
   mouseConstraint = MouseConstraint.create(engine, { mouse: mouse });
   World.add(world, mouseConstraint);
 
-  spatialGrid = new SpatialGrid(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT, CONFIG.GRID_CELL_SIZE);
-
-  createWalls();
-  resetDioptres();
-
-  const centreX = 30;
-  const centreY = 30;
-  const rayon = 20;
-  for (let i = 0; i < 3; i++) {
-    const angle = TWO_PI / 3 * i;
-    const x = centreX + cos(angle) * rayon;
-    const y = centreY + sin(angle) * rayon;
-    lights.push(new Light(x, y, color(255, 255, 255, 50), dioptres));
-  }
-
   runner = Runner.create();
   Runner.run(runner, engine);
 
-  // Tablettes et iframe : mise à l'échelle, tactile, pause hors écran (lightphysics/ecran.js).
+  // Téléphones, tablettes et iframe : taille de la fenêtre, tactile, pause hors écran (lightphysics/ecran.js).
   Ecran.installer(rendu.elt, mouse, runner);
 
   // Masse et poids : astre, fiche de l'objet touché, flèche du poids, aide (lightphysics/pesanteur.js).
   Pesanteur.installer(rendu.elt, mouseConstraint, runner, engine);
+
+  for (let i = 0; i < 3; i++) lights.push(new Light(0, 0, color(255, 255, 255, 50), dioptres));
+
+  // Plateau, lampes et grille suivent la fenêtre et la place prise par le menu.
+  amenagerMonde();
+  Ecran.apresRedimension(amenagerMonde);
+}
+
+// Place le décor dans la zone laissée libre par le menu (à gauche sur un écran large, en haut
+// sur un téléphone tenu droit) : le plateau est centré dans cette zone, pas dans la fenêtre.
+// Rappelée à chaque changement de taille ou d'orientation.
+function amenagerMonde() {
+  Pesanteur.placerInterface();
+  const zone = Pesanteur.zoneLibre();
+
+  spatialGrid = new SpatialGrid(width, height, CONFIG.GRID_CELL_SIZE);
+
+  // Plateau à 100 unités du bas : la place sous les objets posés permet de dessiner la flèche du poids.
+  const largeurLibre = zone.x1 - zone.x0;
+  const largeurPlateau = Math.max(140, Math.min(700, largeurLibre * 0.66));
+  const centre = (zone.x0 + zone.x1) / 2;
+  const ancien = boxes[0] && boxes[0].estPlateau ? boxes[0] : null;
+  if (ancien) ancien.removeFromWorld();
+  const plateau = new Box(centre, height - 100, largeurPlateau, 20, {isStatic: true, timeScale: 1}, ancien && ancien.img ? [ancien.img] : boxesImg);
+  plateau.estPlateau = true;
+  if (ancien) boxes[0] = plateau; else boxes.unshift(plateau);
+
+  // Trois lampes en triangle, en haut à gauche, là où le menu ne les cache pas.
+  const centreX = zone.lampes.x, centreY = zone.lampes.y, rayon = 20;
+  lights.forEach((lampe, i) => {
+    const angle = TWO_PI / 3 * i;
+    lampe.update(centreX + cos(angle) * rayon, centreY + sin(angle) * rayon);
+  });
+
+  resetDioptres();
+}
+
+// Abscisses où apparaissent les objets : au-dessus de la zone libre, loin des bords.
+function zoneApparition() {
+  const zone = Pesanteur.zoneLibre();
+  const gauche = Math.max(zone.x0, 60);
+  const droite = Math.max(gauche + 40, width - Math.min(150, width * 0.15));
+  return [gauche, droite];
 }
 
 function draw() {
@@ -95,7 +125,8 @@ function draw() {
     noStroke();
     fill(255, 255, 0);
     textSize(14);
-    text('FPS: ' + frameRate().toFixed(1), 10, 20);
+    textAlign(RIGHT, BOTTOM);
+    text('FPS: ' + frameRate().toFixed(1), width - 10, height - 8);
   }
 
 }
@@ -113,15 +144,6 @@ function updateDioptres() {
   for (const light of lights) {
     light.grid = spatialGrid;
   }
-}
-
-function createWalls() {
-  const options = {
-    isStatic: true,
-    timeScale: 1
-  };
-  // Plateau à 100 px du bas : la place sous les objets posés permet de dessiner la flèche du poids.
-  boxes.push(new Box(width / 2, height - 100, width - 400, 20, options, boxesImg));
 }
 
 function generateBox(x, y, w, h, img) {
@@ -145,10 +167,11 @@ function manageObjects() {
   manageOffScreenObjects(balls);
 
   if (frameCount % CONFIG.SPAWN_INTERVAL === 0) {
+    const [gauche, droite] = zoneApparition();
     if (Math.random() < CONFIG.SPAWN_PROBABILITY) {
-      generateBox(random(200, width - 150), 0, random(50, 150), random(50, 150), boxesImg);
+      generateBox(random(gauche, droite), 0, random(50, 150), random(50, 150), boxesImg);
     } else {
-      generateBall(random(200, width - 150), 0, random(10, 50), { timeScale: 1 }, ballsImg);
+      generateBall(random(gauche, droite), 0, random(10, 50), { timeScale: 1 }, ballsImg);
     }
   }
 

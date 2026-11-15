@@ -2,9 +2,12 @@
 // VERHILLE Arnaud
 // Copyleft GPL2
 //
-// Adaptation à l'écran : tablettes, doigt, iframe, économie d'énergie.
-// La simulation reste en 800×600 (CONFIG) : seul l'affichage CSS du canvas
-// est réduit quand la fenêtre est plus petite. La physique n'est pas touchée.
+// Adaptation à l'écran : téléphones, tablettes, ordinateurs, iframe, doigt, économie d'énergie.
+// La simulation remplit toute la fenêtre qu'on lui donne, à toute taille et dans les deux
+// orientations. Le « monde » (unités de la physique et du dessin) garde les proportions de la
+// fenêtre et une surface proche de 800×600 : les objets gardent donc à peu près la même taille
+// relative sur un téléphone et sur un grand écran. L'échelle (pixels CSS par unité du monde)
+// est bornée : sur un très grand écran, le monde s'agrandit au lieu de grossir sans fin.
 
 const Ecran = (() => {
   let elt = null;      // élément <canvas> de p5
@@ -36,16 +39,52 @@ const Ecran = (() => {
   let doigtPose = false;
   let finDoigt = 0;
 
-  // Affiche le canvas à la plus grande taille possible sans dépasser 800×600
-  // (aucun agrandissement : sur ordinateur, l'affichage reste à 100 %).
+  // Monde : largeur et hauteur en unités de la simulation, s = pixels CSS par unité.
+  const SURFACE = CONFIG.CANVAS_WIDTH * CONFIG.CANVAS_HEIGHT;
+  const ECHELLE_MIN = 0.5, ECHELLE_MAX = 1.4;
+  const DEFINITION_MAX = 3;
+  let monde = {w: CONFIG.CANVAS_WIDTH, h: CONFIG.CANVAS_HEIGHT, s: 1};
+  let apresRedimension = null;   // fonction de sketch.js : replace le plateau, les lampes, la grille
+  let attente = 0;
+
+  function calculerMonde() {
+    const largeur = window.innerWidth, hauteur = window.innerHeight;
+    if (largeur <= 0 || hauteur <= 0) return monde;   // iframe pas encore affichée
+    const s = Math.min(ECHELLE_MAX, Math.max(ECHELLE_MIN, Math.sqrt(largeur * hauteur / SURFACE)));
+    return {w: Math.round(largeur / s), h: Math.round(hauteur / s), s};
+  }
+
+  // Finesse du dessin : un pixel du canvas par pixel de l'écran (borné), ou 1 par unité sur un appareil lent.
+  function definitionVoulue() {
+    if (definitionReduite) return 1;
+    return Math.max(1, Math.min(DEFINITION_MAX, (window.devicePixelRatio || 1) * monde.s));
+  }
+
+  // Met le canvas à la taille de la fenêtre. Renvoie true si le monde a changé de dimensions.
   function ajusterAffichage() {
-    if (!elt) return;
-    const largeur = window.innerWidth;
-    const hauteur = window.innerHeight;
-    if (largeur <= 0 || hauteur <= 0) return;
-    const echelle = Math.min(1, largeur / CONFIG.CANVAS_WIDTH, hauteur / CONFIG.CANVAS_HEIGHT);
-    elt.style.width = (CONFIG.CANVAS_WIDTH * echelle) + 'px';
-    elt.style.height = (CONFIG.CANVAS_HEIGHT * echelle) + 'px';
+    if (!elt) return false;
+    const nouveau = calculerMonde();
+    const change = nouveau.w !== width || nouveau.h !== height;
+    monde = nouveau;
+    const definition = definitionVoulue();
+    if (Math.abs(pixelDensity() - definition) > 0.01) pixelDensity(definition);
+    if (change) resizeCanvas(monde.w, monde.h);
+    // p5 remet la taille CSS aux dimensions du monde : on impose celle de la fenêtre.
+    elt.style.width = window.innerWidth + 'px';
+    elt.style.height = window.innerHeight + 'px';
+    if (souris) souris.pixelRatio = pixelDensity();
+    return change;
+  }
+
+  function redimensionner() {
+    ajusterAffichage();
+    if (apresRedimension) apresRedimension();
+  }
+
+  // Rotation de l'écran, plein écran, barre d'adresse du téléphone : on attend la fin du geste.
+  function surRedimension() {
+    clearTimeout(attente);
+    attente = setTimeout(redimensionner, 80);
   }
 
   function preparerSaisie() {
@@ -118,9 +157,7 @@ const Ecran = (() => {
 
   function reduireDefinition() {
     definitionReduite = true;
-    pixelDensity(1);          // redimensionne le canvas (et remet sa taille CSS à 800×600)
-    souris.pixelRatio = 1;    // les coordonnées du doigt suivent la nouvelle définition
-    ajusterAffichage();
+    ajusterAffichage();       // applique la définition 1 et remet la taille CSS de la fenêtre
     console.info('LightPhysics : appareil lent, affichage en définition réduite (pixelDensity 1).');
   }
 
@@ -149,7 +186,8 @@ const Ecran = (() => {
     runner = matterRunner;
     reprise = performance.now();
     ajusterAffichage();
-    window.addEventListener('resize', ajusterAffichage);
+    window.addEventListener('resize', surRedimension);
+    window.addEventListener('orientationchange', surRedimension);
     preparerSaisie();
     surveillerVisibilite();
   }
@@ -157,8 +195,11 @@ const Ecran = (() => {
   // État lisible depuis la console (et par les tests automatiques).
   function etat() {
     return {pixelDensity: pixelDensity(), definitionReduite, enPause, ongletCache, horsEcran,
-            affichage: elt ? [elt.clientWidth, elt.clientHeight] : null};
+            affichage: elt ? [elt.clientWidth, elt.clientHeight] : null,
+            fenetre: [window.innerWidth, window.innerHeight], monde: {...monde}};
   }
 
-  return {installer, ajusterAffichage, surveillerCadence, etat};
+  return {installer, ajusterAffichage, redimensionner, surveillerCadence, etat,
+          monde: () => monde, calculerMonde,
+          apresRedimension: f => { apresRedimension = f; }};
 })();

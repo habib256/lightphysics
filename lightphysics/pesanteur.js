@@ -86,9 +86,13 @@ const Pesanteur = (() => {
 
   // ---- Interface (HTML par-dessus le canvas) --------------------------------
 
+  // Écran large : colonne à gauche. Téléphone tenu droit (largeur ≤ 560 px) : bandeau en haut.
+  // Téléphone couché (hauteur ≤ 430 px) : colonne à gauche, plus étroite et plus serrée.
+  // Les tailles sont en pixels de l'écran (pas à l'échelle de la simulation) : un bouton reste
+  // assez grand pour le doigt sur tous les appareils.
   const STYLE = `
-  #pesanteur { position: fixed; left: 0; top: 0; width: 800px; height: 600px; transform-origin: 0 0;
-    pointer-events: none; z-index: 2; font: 15px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  #pesanteur { position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    font: 15px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     color: #fff; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   #pesanteur .pz-colonne { position: absolute; left: 8px; top: 62px; bottom: 8px; width: 184px; display: flex; flex-direction: column; gap: 6px; }
   #pesanteur .pz-colonne > * { flex: 0 0 auto; }
@@ -107,10 +111,26 @@ const Pesanteur = (() => {
   #pesanteur .pz-carte p { margin: 0 0 5px; }
   #pesanteur .pz-carte p:last-child { margin-bottom: 0; }
   #pesanteur .pz-p { color: #ff8a80; font-weight: 700; }
-  #pesanteur .pz-barre { display: inline-block; width: ${BARRE}px; height: 4px; margin: 0 4px 3px 2px; vertical-align: middle;
+  #pesanteur .pz-barre { display: inline-block; width: var(--pz-barre, ${BARRE}px); height: 4px; margin: 0 4px 3px 2px; vertical-align: middle;
     background: ${COULEUR_FLECHE}; border-left: 2px solid #fff; border-right: 2px solid #fff; box-sizing: border-box; }
   #pesanteur .pz-petit { font-size: 14px; opacity: .9; }
   #pesanteur [hidden] { display: none; }
+  @media (min-width: 561px) and (max-height: 430px) {
+    #pesanteur { font-size: 14px; }
+    #pesanteur .pz-colonne { top: 6px; bottom: 6px; left: 6px; width: 172px; gap: 5px; }
+    #pesanteur button { min-height: 44px; font-size: 15px; }
+    #pesanteur .pz-carte { padding: 6px 8px; }
+  }
+  @media (max-width: 560px) {
+    #pesanteur .pz-colonne { left: 6px; right: 6px; top: 6px; bottom: auto; width: auto; max-height: calc(100% - 12px);
+      flex-direction: row; flex-wrap: wrap; align-content: flex-start; gap: 5px; }
+    #pesanteur button { min-height: 46px; font-size: 15px; }
+    #pesanteur .pz-astres { flex: 1 1 100%; }
+    #pesanteur .pz-g { flex: 1 1 100%; padding: 2px 8px; }
+    #pesanteur .pz-ligne { flex: 1.2 1 0; min-width: 0; }
+    #pesanteur .pz-bouton-ensemble { flex: 1 1 0; min-width: 0; }
+    #pesanteur .pz-colonne > .pz-carte { flex: 0 1 100%; max-height: 42vh; }
+  }
   `;
 
   function creerInterface() {
@@ -145,6 +165,7 @@ const Pesanteur = (() => {
 
     ui = {
       racine,
+      colonne: racine.querySelector('.pz-colonne'),
       astres: [...racine.querySelectorAll('[data-astre]')],
       g: racine.querySelector('.pz-g'),
       pause: racine.querySelector('.pz-bouton-pause'),
@@ -159,13 +180,34 @@ const Pesanteur = (() => {
     ui.ensemble.addEventListener('click', lacherEnsemble);
   }
 
-  // Le calque fait 800×600 comme la simulation et suit la taille affichée du canvas
-  // (réduite par lightphysics/ecran.js sur un petit écran ou dans un iframe).
+  // Le calque couvre la fenêtre, comme le canvas. Seule la barre d'échelle de la fiche suit
+  // l'échelle de la simulation : elle doit avoir à l'écran la longueur du segment de la flèche.
   function placerInterface() {
-    if (!canvas || !ui.racine) return;
-    const r = canvas.getBoundingClientRect();
-    if (r.width <= 0) return;
-    ui.racine.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / CONFIG.CANVAS_WIDTH})`;
+    if (!ui.racine) return;
+    ui.racine.style.setProperty('--pz-barre', (BARRE * Ecran.monde().s) + 'px');
+  }
+
+  // Bandeau en haut (téléphone tenu droit) ou colonne à gauche (les autres écrans).
+  function menuEnHaut() {
+    return !!ui.colonne && getComputedStyle(ui.colonne).flexDirection === 'row';
+  }
+
+  // Zone du monde que le menu ne recouvre pas (les cartes d'aide et de fiche, repliables, ne
+  // comptent pas), en unités de la simulation. Le plateau et les objets y sont placés.
+  function zoneLibre() {
+    const m = Ecran.monde();
+    const zone = {x0: 0, y0: 0, x1: m.w, y1: m.h, lampes: {x: 30, y: 30}};
+    if (!ui.colonne) return zone;
+    const colonne = ui.colonne.getBoundingClientRect();
+    if (menuEnHaut()) {
+      zone.y0 = Math.min(m.h * 0.5, (ui.ensemble.getBoundingClientRect().bottom + 6) / m.s);
+      zone.lampes.y = zone.y0 + 30;
+    } else {
+      zone.x0 = Math.min(m.w * 0.5, (colonne.right + 8) / m.s);
+      // Colonne qui monte jusqu'en haut (téléphone couché) : les lampes passent à sa droite pour rester visibles.
+      if (colonne.top < 50) zone.lampes.x = zone.x0 + 30;
+    }
+    return zone;
   }
 
   function majPanneaux() {
@@ -210,11 +252,15 @@ const Pesanteur = (() => {
     ui.pause.textContent = pause ? 'Reprendre' : 'Pause';
   }
 
-  // Une caisse lourde et un ballon léger, le bas des deux objets à la même hauteur.
+  // Une caisse lourde et un ballon léger, le bas des deux objets à la même hauteur,
+  // de part et d'autre du milieu du plateau.
   function lacherEnsemble() {
-    const bas = 30;
-    generateBox(300, bas - 50, 100, 100, boxesImg);           // 20 kg
-    generateBall(520, bas - 20, 20, {timeScale: 1}, ballsImg); // 0,32 kg
+    const zone = zoneLibre();
+    const bas = zone.y0 + 30;
+    const centre = (zone.x0 + zone.x1) / 2;
+    const ecart = Math.max(70, Math.min(110, (zone.x1 - zone.x0) * 0.33 - 60));
+    generateBox(centre - ecart, bas - 50, 100, 100, boxesImg);           // 20 kg
+    generateBall(centre + ecart, bas - 20, 20, {timeScale: 1}, ballsImg); // 0,32 kg
     if (enPause) mettreEnPause(false);
   }
 
@@ -270,18 +316,20 @@ const Pesanteur = (() => {
     fill(255); stroke(0); strokeWeight(1.5);
     circle(x, y, 8);
 
-    // Étiquettes « G » et « P » (avec la flèche des vecteurs).
-    textSize(16); textStyle(BOLD); textAlign(LEFT, CENTER);
-    stroke(0); strokeWeight(3);
+    // Étiquettes « G » et « P » (avec la flèche des vecteurs). Sur un petit écran, la simulation
+    // est réduite : les lettres sont agrandies d'autant pour rester lisibles (k = 1 ailleurs).
+    const k = 1 / Math.min(1, Ecran.monde().s);
+    textSize(16 * k); textStyle(BOLD); textAlign(LEFT, CENTER);
+    stroke(0); strokeWeight(3 * k);
     fill(255);
-    text('G', x - 20, y - 8);
-    const yp = y + Math.max(L / 2, 10);
+    text('G', x - 20 * k, y - 8 * k);
+    const yp = y + Math.max(L / 2, 10 * k);
     fill(COULEUR_FLECHE);
-    text('P', x + 10, yp + 2);
-    strokeWeight(2); stroke(COULEUR_FLECHE);
-    line(x + 10, yp - 10, x + 21, yp - 10);
-    line(x + 21, yp - 10, x + 17, yp - 13);
-    line(x + 21, yp - 10, x + 17, yp - 7);
+    text('P', x + 10 * k, yp + 2 * k);
+    strokeWeight(2 * k); stroke(COULEUR_FLECHE);
+    line(x + 10 * k, yp - 10 * k, x + 21 * k, yp - 10 * k);
+    line(x + 21 * k, yp - 10 * k, x + 17 * k, yp - 13 * k);
+    line(x + 21 * k, yp - 10 * k, x + 17 * k, yp - 7 * k);
     pop();
   }
 
@@ -293,7 +341,7 @@ const Pesanteur = (() => {
     runner = matterRunner;
     moteur = matterEngine;
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', 'Simulation : des caisses et des ballons tombent sous une lampe et projettent leur ombre. On peut les attraper au doigt ou à la souris. Une flèche rouge représente le poids de l’objet touché ; sa masse et son poids sont écrits dans la fiche à gauche.');
+    canvas.setAttribute('aria-label', 'Simulation : des caisses et des ballons tombent sous une lampe et projettent leur ombre. On peut les attraper au doigt ou à la souris. Une flèche rouge représente le poids de l’objet touché ; sa masse et son poids sont écrits dans la fiche du menu.');
     creerInterface();
     choisirAstre('terre');
     majPanneaux();
@@ -308,8 +356,6 @@ const Pesanteur = (() => {
     document.addEventListener('touchend', leverDoigts, {capture: true, passive: true});
     document.addEventListener('touchcancel', leverDoigts, {capture: true, passive: true});
     placerInterface();
-    window.addEventListener('resize', placerInterface);
-    if ('ResizeObserver' in window) new ResizeObserver(placerInterface).observe(canvas);
   }
 
   // État lisible depuis la console (et par les tests automatiques).
@@ -324,5 +370,6 @@ const Pesanteur = (() => {
   }
 
   return {installer, donnerMasse, dessiner, choisirAstre, mettreEnPause, lacherEnsemble, longueurFleche,
+          placerInterface, zoneLibre, menuEnHaut,
           enPause: () => enPause, etat, ASTRES};
 })();
