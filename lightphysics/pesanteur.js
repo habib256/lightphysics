@@ -1,9 +1,16 @@
-// LightPhysics — Masse et poids, module pédagogique (v1.0, 2026-11-14)
+// LightPhysics — Masse et poids, module pédagogique (v1.1, 2026-11-15)
 // VERHILLE Arnaud
 // Copyleft GPL2
 //
 // Masse et poids (cours de 4e) : choix de l'astre, masse et poids de l'objet touché,
-// flèche du poids, carte d'aide, pause, « Lâcher ensemble ».
+// flèche du poids, carte du protocole, pause, « Lâcher ensemble ».
+//
+// Le protocole donne des actions et des observations à relever, jamais la conclusion :
+// l'élève la trouve lui-même (ni le protocole, ni la fiche, ni le libellé du canvas ne la disent).
+// « Lâcher ensemble » est une expérience propre : la scène est vidée (le plateau reste), la caisse et
+// le ballon partent le bas à la même hauteur, au-dessus du plateau et sans pouvoir se toucher, on ne
+// peut pas les attraper avant leur arrivée, aucun objet n'apparaît avant qu'ils aient touché le plateau
+// (plus 2 s pour voir le résultat), et un changement de taille de la fenêtre la relance sur le nouveau plateau.
 //
 // Ce qui est exact par construction :
 // - l'intensité de la pesanteur de la simulation suit g : Terre 9,8 ; Lune 1,6 ; Mars 3,7 N/kg
@@ -35,10 +42,17 @@ const Pesanteur = (() => {
   let astre = 'terre';
   let selection = null;      // objet choisi (Box ou Ball)
   let enPause = false;
-  let aideOuverte = true;    // carte d'aide ouverte au lancement
+  let protocoleOuvert = true;  // carte du protocole ouverte au lancement
   let canvas = null, contrainte = null, runner = null, moteur = null;
   let ui = {};
   let ficheAffichee = '';    // pour ne réécrire la fiche (zone lue par les lecteurs d'écran) qu'au changement
+  let lacher = null;         // expérience « Lâcher ensemble » : en cours, ou la dernière (lue par etat())
+  const DELAI_APRES_LACHER = 2000;    // ms de simulation après l'arrivée des deux objets, sans apparition
+  const DUREE_MAX_LACHER = 20000;     // sécurité : les apparitions reprennent quoi qu'il arrive
+  // Catégorie de collision de la saisie au doigt ou à la souris (Matter.MouseConstraint). Les objets
+  // ordinaires (masque complet) restent saisissables ; la caisse et le ballon de « Lâcher ensemble » ne
+  // le sont pas pendant leur chute (masque sans cette catégorie). Leurs collisions ne changent pas.
+  const SAISIE = 0x0002;
 
   // ---- Grandeurs ----------------------------------------------------------
 
@@ -114,6 +128,17 @@ const Pesanteur = (() => {
   #pesanteur .pz-barre { display: inline-block; width: var(--pz-barre, ${BARRE}px); height: 4px; margin: 0 4px 3px 2px; vertical-align: middle;
     background: ${COULEUR_FLECHE}; border-left: 2px solid #fff; border-right: 2px solid #fff; box-sizing: border-box; }
   #pesanteur .pz-petit { font-size: 14px; opacity: .9; }
+  /* Protocole : plus serré que la fiche, pour tenir entier dans la colonne (cadre d'un cours de 620 px
+     de haut compris) et couvrir le moins possible de la simulation dans le bandeau du téléphone. */
+  #pesanteur .pz-protocole { font-size: 13px; line-height: 1.2; padding: 6px 8px; }
+  #pesanteur .pz-protocole p { margin-bottom: 2px; }
+  #pesanteur .pz-protocole .pz-petit { font-size: 12px; }
+  /* « suite ↓ » : collé au bas de la carte tant qu'il reste du texte plus bas (barre de défilement
+     invisible sur un téléphone). Hauteur nulle : il ne change pas la hauteur du contenu. */
+  #pesanteur .pz-suite { position: sticky; bottom: 0; height: 0; margin: 0; }
+  #pesanteur .pz-suite span { position: absolute; left: -8px; right: -8px; bottom: -6px; padding: 14px 10px 4px; text-align: right;
+    font-size: 13px; font-weight: 700; color: ${COULEUR_SELECTION}; pointer-events: none;
+    background: linear-gradient(rgba(14,18,26,0), rgba(14,18,26,.97) 50%); border-radius: 0 0 10px 10px; }
   #pesanteur [hidden] { display: none; }
   @media (min-width: 561px) and (max-height: 430px) {
     #pesanteur { font-size: 14px; }
@@ -130,6 +155,9 @@ const Pesanteur = (() => {
     #pesanteur .pz-ligne { flex: 1.2 1 0; min-width: 0; }
     #pesanteur .pz-bouton-ensemble { flex: 1 1 0; min-width: 0; }
     #pesanteur .pz-colonne > .pz-carte { flex: 0 1 100%; max-height: 42vh; }
+    #pesanteur .pz-protocole { font-size: 14px; padding-top: 5px; padding-bottom: 5px; }
+    #pesanteur .pz-protocole p { margin-bottom: 0; }
+    #pesanteur .pz-protocole .pz-petit { font-size: 13px; }
   }
   `;
 
@@ -150,14 +178,17 @@ const Pesanteur = (() => {
         <p class="pz-g" aria-live="polite"></p>
         <div class="pz-ligne">
           <button type="button" class="pz-bouton-pause" aria-pressed="false">Pause</button>
-          <button type="button" class="pz-bouton-aide" aria-expanded="true" aria-controls="pz-aide">Aide</button>
+          <button type="button" class="pz-bouton-protocole" aria-expanded="true" aria-controls="pz-protocole">Protocole</button>
         </div>
         <button type="button" class="pz-bouton-ensemble">Lâcher ensemble</button>
-        <section id="pz-aide" class="pz-carte" aria-label="Aide&nbsp;: masse et poids">
-          <p>1. Touche un objet&nbsp;: tu vois sa masse <i>m</i> et son poids <i>P</i> (<span class="pz-p">flèche rouge</span>).</p>
-          <p>2. Passe sur la Lune ou sur Mars&nbsp;: <i>P</i> change, <i>m</i> reste la même.</p>
-          <p>3. «&nbsp;Lâcher ensemble&nbsp;»&nbsp;: une caisse de 20&nbsp;kg et un ballon de 0,32&nbsp;kg tombent ensemble.</p>
-          <p class="pz-petit">L’air est négligé, comme dans le vide.</p>
+        <section id="pz-protocole" class="pz-carte pz-protocole" aria-label="Protocole&nbsp;: masse et poids">
+          <p>1. Mets en pause et touche un objet&nbsp;: relève sa masse <i>m</i> et son poids <i>P</i> sur Terre.</p>
+          <p>2. Relève-les sur la Lune, puis sur Mars. Qu’est-ce qui change&nbsp;? Qu’est-ce qui ne change pas&nbsp;?</p>
+          <p>3. Prévois et écris&nbsp;: la caisse de 20&nbsp;kg arrivera-t-elle sur le plateau avant le ballon de 0,32&nbsp;kg, après lui, ou en même temps&nbsp;?</p>
+          <p>4. «&nbsp;Lâcher ensemble&nbsp;»&nbsp;: observe l’instant où chacun touche le plateau.</p>
+          <p><b>Conclus</b> en deux phrases&nbsp;: étapes 1-2, puis 3-4.</p>
+          <p class="pz-petit">Dans cette simulation, on ne tient pas compte de l’air.</p>
+          <div class="pz-suite" aria-hidden="true" hidden><span>suite ↓</span></div>
         </section>
         <section class="pz-carte pz-fiche" role="status" aria-live="polite" hidden></section>
       </div>`;
@@ -169,15 +200,17 @@ const Pesanteur = (() => {
       astres: [...racine.querySelectorAll('[data-astre]')],
       g: racine.querySelector('.pz-g'),
       pause: racine.querySelector('.pz-bouton-pause'),
-      aide: racine.querySelector('.pz-bouton-aide'),
+      protocole: racine.querySelector('.pz-bouton-protocole'),
       ensemble: racine.querySelector('.pz-bouton-ensemble'),
-      carte: racine.querySelector('#pz-aide'),
+      carte: racine.querySelector('#pz-protocole'),
+      suite: racine.querySelector('#pz-protocole .pz-suite'),
       fiche: racine.querySelector('.pz-fiche'),
     };
     ui.astres.forEach(b => b.addEventListener('click', () => choisirAstre(b.dataset.astre)));
     ui.pause.addEventListener('click', () => mettreEnPause(!enPause));
-    ui.aide.addEventListener('click', () => { aideOuverte = !aideOuverte; majPanneaux(); });
-    ui.ensemble.addEventListener('click', lacherEnsemble);
+    ui.protocole.addEventListener('click', () => { protocoleOuvert = !protocoleOuvert; majPanneaux(); });
+    ui.ensemble.addEventListener('click', () => lacherEnsemble());
+    ui.carte.addEventListener('scroll', majSuite, {passive: true});
   }
 
   // Le calque couvre la fenêtre, comme le canvas. Seule la barre d'échelle de la fiche suit
@@ -185,6 +218,7 @@ const Pesanteur = (() => {
   function placerInterface() {
     if (!ui.racine) return;
     ui.racine.style.setProperty('--pz-barre', (BARRE * Ecran.monde().s) + 'px');
+    majPanneaux();  // la place disponible a changé (rotation, fenêtre redimensionnée)
   }
 
   // Bandeau en haut (téléphone tenu droit) ou colonne à gauche (les autres écrans).
@@ -192,7 +226,7 @@ const Pesanteur = (() => {
     return !!ui.colonne && getComputedStyle(ui.colonne).flexDirection === 'row';
   }
 
-  // Zone du monde que le menu ne recouvre pas (les cartes d'aide et de fiche, repliables, ne
+  // Zone du monde que le menu ne recouvre pas (les cartes du protocole et de la fiche, repliables, ne
   // comptent pas), en unités de la simulation. Le plateau et les objets y sont placés.
   function zoneLibre() {
     const m = Ecran.monde();
@@ -210,11 +244,33 @@ const Pesanteur = (() => {
     return zone;
   }
 
+  // Protocole et fiche affichés ensemble, la fiche sous le protocole, si la colonne a la place de les
+  // montrer entiers tous les deux (grand écran). Sinon (téléphone, tablette couchée…), une seule carte
+  // à la fois : toucher un objet replie le protocole, le rouvrir cache la fiche.
+  function deuxCartesTiennent() {
+    if (!selection || !ui.colonne || menuEnHaut()) return false;
+    const carteCachee = ui.carte.hidden, ficheCachee = ui.fiche.hidden;
+    ui.carte.hidden = false;
+    ui.fiche.hidden = false;
+    const tiennent = [ui.carte, ui.fiche].every(c => c.scrollHeight <= c.clientHeight + 1);
+    ui.carte.hidden = carteCachee;
+    ui.fiche.hidden = ficheCachee;
+    return tiennent;
+  }
+
   function majPanneaux() {
-    ui.aide.setAttribute('aria-expanded', String(aideOuverte));
-    ui.carte.hidden = !aideOuverte;
-    ui.fiche.hidden = aideOuverte || !selection;
+    if (!ui.carte) return;
     majFiche();
+    ui.protocole.setAttribute('aria-expanded', String(protocoleOuvert));
+    ui.carte.hidden = !protocoleOuvert;
+    ui.fiche.hidden = !selection || (protocoleOuvert && !deuxCartesTiennent());
+    majSuite();
+  }
+
+  // Indice « suite ↓ » tant que le bas du protocole n'est pas visible.
+  function majSuite() {
+    const c = ui.carte;
+    ui.suite.hidden = c.hidden || c.scrollHeight - c.clientHeight - c.scrollTop <= 2;
   }
 
   function majFiche() {
@@ -223,7 +279,7 @@ const Pesanteur = (() => {
       const A = ASTRES[astre];
       const m = decimal(selection.masseCentiemes, 2);
       html = `<h2>${selection.type === 'caisse' ? 'Caisse' : 'Ballon'} <span class="pz-petit">(masse de simulation)</span></h2>
-        <p>Masse&nbsp;: <b><i>m</i> = ${m}&nbsp;kg</b><br><span class="pz-petit">la même sur tous les astres</span></p>
+        <p>Masse&nbsp;: <b><i>m</i> = ${m}&nbsp;kg</b></p>
         <p>Poids ${A.sur}&nbsp;:<br><i>P</i> = <i>m</i> × <i>g</i><br><i>P</i> = ${m}&nbsp;kg × ${decimal(A.g, 1)}&nbsp;N/kg<br>
         <b class="pz-p"><i>P</i> = ${decimal(poidsMilliN(selection), 3)}&nbsp;N</b></p>
         <p class="pz-petit">Échelle de cet objet&nbsp;: <span class="pz-barre" aria-hidden="true"></span> = ${decimal(echelleMilliN(selection), 3)}&nbsp;N (elle change d’un objet à l’autre). Seul le poids est dessiné (pas le support ni la main).</p>`;
@@ -240,7 +296,7 @@ const Pesanteur = (() => {
     moteur.gravity.y = ASTRES[cle].g / G_TERRE;  // rapport exact : Lune 16/98, Mars 37/98
     ui.astres.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.astre === cle)));
     ui.g.innerHTML = `${ASTRES[cle].nom}&nbsp;: <i>g</i> = ${decimal(ASTRES[cle].g, 1)}&nbsp;N/kg`;
-    majFiche();
+    majPanneaux();  // la fiche du même objet suit l'astre
   }
 
   // Pause voulue par l'élève : la physique s'arrête (runner.enabled, indépendant de la pause
@@ -252,16 +308,102 @@ const Pesanteur = (() => {
     ui.pause.textContent = pause ? 'Reprendre' : 'Pause';
   }
 
-  // Une caisse lourde et un ballon léger, le bas des deux objets à la même hauteur,
-  // de part et d'autre du milieu du plateau.
-  function lacherEnsemble() {
-    const zone = zoneLibre();
-    const bas = zone.y0 + 30;
-    const centre = (zone.x0 + zone.x1) / 2;
-    const ecart = Math.max(70, Math.min(110, (zone.x1 - zone.x0) * 0.33 - 60));
-    generateBox(centre - ecart, bas - 50, 100, 100, boxesImg);           // 20 kg
-    generateBall(centre + ecart, bas - 20, 20, {timeScale: 1}, ballsImg); // 0,32 kg
-    if (enPause) mettreEnPause(false);
+  // ---- « Lâcher ensemble » : une expérience propre ---------------------------
+
+  // Retire tous les objets mobiles (le plateau reste). Un objet tenu au doigt est lâché, et un doigt
+  // resté posé n'attrape plus rien tant qu'il n'est pas levé puis reposé.
+  function viderScene() {
+    for (const liste of [boxes, balls]) {
+      for (let i = liste.length - 1; i >= 0; i--) {
+        if (liste[i].estPlateau) continue;
+        liste[i].removeFromWorld();
+        liste.splice(i, 1);
+      }
+    }
+    contrainte.constraint.bodyB = null;
+    contrainte.body = null;
+    contrainte.mouse.button = -1;
+    if (selection) {
+      selection = null;  // l'objet choisi a été retiré : la fiche se ferme
+      majPanneaux();
+    }
+  }
+
+  // Une caisse lourde et un ballon léger, le bas des deux objets exactement à la même hauteur, de part
+  // et d'autre du milieu du plateau, au moins 20 unités entre eux. Chacun est entièrement au-dessus du
+  // plateau quand celui-ci mesure au moins 190 unités (toujours aux tailles testées : 343 unités au
+  // moins) ; sur un plateau plus court (140 unités au minimum), la caisse dépasse un peu du bord, mais
+  // son centre reste au-dessus du plateau.
+  // Appui de l'élève : la simulation repart si elle était en pause (le bouton redevient « Pause ») ; sur
+  // un téléphone tenu droit, la carte du protocole se replie pour laisser voir le départ de la chute.
+  // Relance après un changement de taille (garderPause) : la pause de l'élève est conservée.
+  function lacherEnsemble(garderPause = false) {
+    if (!garderPause && protocoleOuvert && menuEnHaut()) {
+      protocoleOuvert = false;
+      majPanneaux();
+    }
+    const relances = lacher && lacher.enCours && garderPause ? lacher.relances + 1 : 0;
+    viderScene();
+    const plateau = boxes.find(b => b.estPlateau);
+    const centre = plateau.body.position.x;
+    const ecart = Math.max(45, Math.min(110, plateau.w / 2 - 55));
+    const bas = zoneLibre().y0 + 30;
+    generateBox(centre - ecart, bas - 50, 100, 100, boxesImg);            // 20 kg
+    generateBall(centre + ecart, bas - 20, 20, {timeScale: 1}, ballsImg);  // 0,32 kg
+    const caisse = boxes[boxes.length - 1], ballon = balls[balls.length - 1];
+    // Matter.js dessine le ballon comme un polygone à bas plat, un peu au-dessus du cercle : on l'aligne.
+    Body.translate(ballon.body, {x: 0, y: caisse.body.bounds.max.y - ballon.body.bounds.max.y});
+    // Pas de saisie pendant la chute (toucher l'objet pour lire sa fiche reste possible).
+    for (const o of [caisse, ballon]) o.body.collisionFilter.mask &= ~SAISIE;
+    lacher = {caisse, ballon, plateau, debut: moteur.timing.timestamp, contacts: {}, fin: null, enCours: true, relances};
+    if (enPause && !garderPause) mettreEnPause(false);
+  }
+
+  // L'objet redevient saisissable (à son arrivée, ou à la fin de l'expérience).
+  function rendreSaisissable(objet) {
+    objet.body.collisionFilter.mask |= SAISIE;
+  }
+
+  function terminerLacher() {
+    lacher.enCours = false;
+    rendreSaisissable(lacher.caisse);
+    rendreSaisissable(lacher.ballon);
+  }
+
+  // Premier contact de chacun des deux objets (avec le plateau, ou avec autre chose).
+  function surContact(evenement) {
+    if (!lacher || !lacher.enCours) return;
+    for (const paire of evenement.pairs) {
+      const a = paire.bodyA.parent, b = paire.bodyB.parent;
+      for (const cle of ['caisse', 'ballon']) {
+        const corps = lacher[cle].body;
+        if (lacher.contacts[cle] || (a !== corps && b !== corps)) continue;
+        const autre = a === corps ? b : a;
+        lacher.contacts[cle] = {avec: autre === lacher.plateau.body ? 'plateau' : 'objet', t: moteur.timing.timestamp};
+        rendreSaisissable(lacher[cle]);
+      }
+    }
+    if (lacher.contacts.caisse && lacher.contacts.ballon && lacher.fin === null) {
+      lacher.fin = moteur.timing.timestamp + DELAI_APRES_LACHER;
+    }
+  }
+
+  // Appelée par sketch.js avant de faire apparaître un objet : non pendant l'expérience.
+  function apparitionsPermises() {
+    if (!lacher || !lacher.enCours) return true;
+    const t = moteur.timing.timestamp;
+    const presents = boxes.includes(lacher.caisse) && balls.includes(lacher.ballon) && boxes.includes(lacher.plateau);
+    if (!presents || (lacher.fin !== null && t >= lacher.fin) || t - lacher.debut > DUREE_MAX_LACHER) terminerLacher();
+    return !lacher.enCours;
+  }
+
+  // Appelée par sketch.js quand le plateau a été reconstruit (rotation, fenêtre ou cadre redimensionnés,
+  // y compris juste après un appui, le redimensionnement étant différé de 80 ms) : une expérience en
+  // cours est relancée sur le nouveau plateau ; une expérience déjà arrivée est simplement terminée.
+  function apresAmenagement() {
+    if (!lacher || !lacher.enCours) return;
+    if (lacher.contacts.caisse && lacher.contacts.ballon) terminerLacher();
+    else lacherEnsemble(true);
   }
 
   // ---- Choix d'un objet au doigt ou à la souris -------------------------------
@@ -276,7 +418,8 @@ const Pesanteur = (() => {
   function toucher() {
     // Matter.Mouse a déjà converti la position (ses écouteurs sont installés avant celui-ci).
     selection = objetSous(contrainte.mouse.position);
-    if (selection) aideOuverte = false;
+    majFiche();
+    if (selection && protocoleOuvert && !deuxCartesTiennent()) protocoleOuvert = false;
     majPanneaux();
   }
 
@@ -343,6 +486,8 @@ const Pesanteur = (() => {
     canvas.setAttribute('role', 'img');
     canvas.setAttribute('aria-label', 'Simulation : des caisses et des ballons tombent sous une lampe et projettent leur ombre. On peut les attraper au doigt ou à la souris. Une flèche rouge représente le poids de l’objet touché ; sa masse et son poids sont écrits dans la fiche du menu.');
     creerInterface();
+    Matter.Events.on(moteur, 'collisionStart', surContact);
+    contrainte.collisionFilter.category = SAISIE;
     choisirAstre('terre');
     majPanneaux();
     canvas.addEventListener('mousedown', toucher);
@@ -361,15 +506,21 @@ const Pesanteur = (() => {
   // État lisible depuis la console (et par les tests automatiques).
   function etat() {
     return {
-      astre, g: ASTRES[astre].g / 10, gravityY: moteur ? moteur.gravity.y : null, enPause, aideOuverte,
+      astre, g: ASTRES[astre].g / 10, gravityY: moteur ? moteur.gravity.y : null, enPause, protocoleOuvert,
       selection: selection ? {id: selection.body.id, type: selection.type, masseKg: selection.masseCentiemes / 100,
         masseMoteur: selection.body.mass, poidsN: poidsMilliN(selection) / 1000, echelleN: echelleMilliN(selection) / 1000,
         longueurFleche: longueurFleche(selection)} : null,
       fiche: ui.fiche ? ui.fiche.textContent.replace(/\s+/g, ' ').trim() : '',
+      deuxCartes: !!ui.carte && !ui.carte.hidden && !ui.fiche.hidden,
+      lacher: lacher ? {enCours: lacher.enCours, caisse: lacher.caisse.body.id, ballon: lacher.ballon.body.id,
+        contacts: JSON.parse(JSON.stringify(lacher.contacts)),
+        ecartMs: lacher.contacts.caisse && lacher.contacts.ballon ? lacher.contacts.caisse.t - lacher.contacts.ballon.t : null,
+        pasMs: moteur.timing.lastDelta, relances: lacher.relances, plateau: lacher.plateau.body.id,
+        saisissables: [lacher.caisse, lacher.ballon].map(o => Matter.Detector.canCollide(o.body.collisionFilter, contrainte.collisionFilter))} : null,
     };
   }
 
   return {installer, donnerMasse, dessiner, choisirAstre, mettreEnPause, lacherEnsemble, longueurFleche,
-          placerInterface, zoneLibre, menuEnHaut,
+          placerInterface, zoneLibre, menuEnHaut, apparitionsPermises, apresAmenagement,
           enPause: () => enPause, etat, ASTRES};
 })();

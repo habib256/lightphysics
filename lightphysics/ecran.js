@@ -68,7 +68,10 @@ const Ecran = (() => {
     monde = nouveau;
     const definition = definitionVoulue();
     if (Math.abs(pixelDensity() - definition) > 0.01) pixelDensity(definition);
-    if (change) resizeCanvas(monde.w, monde.h);
+    // Sans redessiner tout de suite (troisième argument) : un dessin entre le changement de taille du canvas
+    // et le réaménagement du monde (plateau, zone libre) retirerait comme « hors de l'écran » le plateau et
+    // des objets encore placés pour l'ancienne taille.
+    if (change) resizeCanvas(monde.w, monde.h, true);
     // p5 remet la taille CSS aux dimensions du monde : on impose celle de la fenêtre.
     elt.style.width = window.innerWidth + 'px';
     elt.style.height = window.innerHeight + 'px';

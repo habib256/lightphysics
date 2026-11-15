@@ -57,7 +57,7 @@ function setup() {
   // Téléphones, tablettes et iframe : taille de la fenêtre, tactile, pause hors écran (lightphysics/ecran.js).
   Ecran.installer(rendu.elt, mouse, runner);
 
-  // Masse et poids : astre, fiche de l'objet touché, flèche du poids, aide (lightphysics/pesanteur.js).
+  // Masse et poids : astre, fiche de l'objet touché, flèche du poids, protocole (lightphysics/pesanteur.js).
   Pesanteur.installer(rendu.elt, mouseConstraint, runner, engine);
 
   for (let i = 0; i < 3; i++) lights.push(new Light(0, 0, color(255, 255, 255, 50), dioptres));
@@ -94,6 +94,9 @@ function amenagerMonde() {
   });
 
   resetDioptres();
+
+  // Expérience « Lâcher ensemble » en cours : relancée sur le nouveau plateau.
+  Pesanteur.apresAmenagement();
 }
 
 // Abscisses où apparaissent les objets : au-dessus de la zone libre, loin des bords.
@@ -166,7 +169,8 @@ function manageObjects() {
   manageOffScreenObjects(boxes);
   manageOffScreenObjects(balls);
 
-  if (frameCount % CONFIG.SPAWN_INTERVAL === 0) {
+  // Pas d'apparition pendant l'expérience « Lâcher ensemble » (lightphysics/pesanteur.js).
+  if (Pesanteur.apparitionsPermises() && frameCount % CONFIG.SPAWN_INTERVAL === 0) {
     const [gauche, droite] = zoneApparition();
     if (Math.random() < CONFIG.SPAWN_PROBABILITY) {
       generateBox(random(gauche, droite), 0, random(50, 150), random(50, 150), boxesImg);
@@ -177,7 +181,7 @@ function manageObjects() {
 
   function manageOffScreenObjects(objects) {
     for (let i = objects.length - 1; i >= 0; i--) {
-      if (objects[i].isOffScreen()) {
+      if (objects[i].isOffScreen() && !objects[i].estPlateau) {  // le plateau est replacé par amenagerMonde()
         objects[i].removeFromWorld();
         objects.splice(i, 1);
       }
